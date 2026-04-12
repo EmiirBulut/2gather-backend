@@ -1,4 +1,4 @@
-# Claude Backend Instructions — Getting Married App
+# Claude Backend Instructions — 2gather App
 
 > Stack: .NET 9, C#, ASP.NET Core Web API, Entity Framework Core, PostgreSQL, SignalR, JWT Authentication
 > Place this file at the root of the backend repository.
@@ -7,7 +7,7 @@
 
 ## 1. Project Overview
 
-A collaborative wedding planning application. Multiple users can share a single list, manage product items with options, and track spending by room/category. Real-time collaboration is handled via SignalR.
+A collaborative wedding planning application (2gather). Multiple users can share a single list, manage product items with options, and track spending by room/category. Real-time collaboration is handled via SignalR.
 
 ---
 
@@ -286,4 +286,4 @@ MemberRemoved   { listId, userId }
 
 ---
 
-*Last updated: 2026-04-11*
+*Last updated: 2026-04-12*
