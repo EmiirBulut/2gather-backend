@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TwoGather.Api/TwoGather.Api.csproj" />
+    <Project Path="src/TwoGather.Application/TwoGather.Application.csproj" />
+    <Project Path="src/TwoGather.Domain/TwoGather.Domain.csproj" />
+    <Project Path="src/TwoGather.Infrastructure/TwoGather.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TwoGather.Api.IntegrationTests/TwoGather.Api.IntegrationTests.csproj" />
+    <Project Path="tests/TwoGather.Application.Tests/TwoGather.Application.Tests.csproj" />
+  </Folder>
+</Solution>

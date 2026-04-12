@@ -1,4 +1,4 @@
-# Getting Married — Backend Development Instructions
+# 2gather — Backend Development Instructions
 # For use with Claude Code (claude-cli)
 # Place at: backend-repo/INSTRUCTIONS.md
 
@@ -6,7 +6,7 @@
 
 ## Project Context
 
-You are building the backend for "Getting Married App" — a collaborative wedding planning tool.
+You are building the backend for "2gather" — a collaborative wedding planning tool.
 Read CLAUDE.md in this repository before writing any code. All architectural decisions, naming
 conventions, and patterns are defined there. Follow them strictly.
 
@@ -35,10 +35,10 @@ conventions, and patterns are defined there. Follow them strictly.
 
 ### Step 1.1 — Solution and project setup
 Create a .NET 9 solution with four projects:
-- `GettingMarried.Api` (ASP.NET Core Web API)
-- `GettingMarried.Application` (Class Library)
-- `GettingMarried.Domain` (Class Library)
-- `GettingMarried.Infrastructure` (Class Library)
+- `TwoGather.Api` (ASP.NET Core Web API)
+- `TwoGather.Application` (Class Library)
+- `TwoGather.Domain` (Class Library)
+- `TwoGather.Infrastructure` (Class Library)
 
 Add project references following Clean Architecture direction:
 `Api` → `Application` → `Domain`; `Infrastructure` → `Application`.
