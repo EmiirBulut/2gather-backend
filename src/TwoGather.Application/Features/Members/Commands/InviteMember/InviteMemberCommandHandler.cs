@@ -1,4 +1,5 @@
 using MediatR;
+using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Domain.Entities;
@@ -35,8 +36,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
             ?? throw new NotFoundException(nameof(Domain.Entities.List), request.ListId);
 
         var callerMember = list.Members.FirstOrDefault(m => m.UserId == _currentUserService.UserId);
-        if (callerMember is null || (callerMember.Role != MemberRole.Owner && callerMember.Role != MemberRole.Editor))
-            throw new ForbiddenException("Only Owner or Editor can invite members.");
+        ListAuthorizationHelper.RequireRole(callerMember, MemberRole.Owner, MemberRole.Editor);
 
         var token = Guid.NewGuid().ToString("N");
         var invite = new ListInvite
