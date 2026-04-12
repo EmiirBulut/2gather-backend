@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+# Developer notes (local only — phase summaries, analysis docs)
+dev-notes/
+
 # dotenv files
 .env
 
