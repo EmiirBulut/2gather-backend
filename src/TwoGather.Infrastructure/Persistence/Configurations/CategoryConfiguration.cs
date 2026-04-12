@@ -28,5 +28,14 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
             .HasForeignKey(c => c.ListId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasData(
+            new Category { Id = new Guid("10000000-0000-0000-0000-000000000001"), Name = "Salon",        RoomLabel = "Salon",        IsSystem = true },
+            new Category { Id = new Guid("10000000-0000-0000-0000-000000000002"), Name = "Yatak Odası",  RoomLabel = "Yatak Odası",  IsSystem = true },
+            new Category { Id = new Guid("10000000-0000-0000-0000-000000000003"), Name = "Mutfak",       RoomLabel = "Mutfak",       IsSystem = true },
+            new Category { Id = new Guid("10000000-0000-0000-0000-000000000004"), Name = "Banyo",        RoomLabel = "Banyo",        IsSystem = true },
+            new Category { Id = new Guid("10000000-0000-0000-0000-000000000005"), Name = "Çocuk Odası",  RoomLabel = "Çocuk Odası",  IsSystem = true },
+            new Category { Id = new Guid("10000000-0000-0000-0000-000000000006"), Name = "Genel",        RoomLabel = "Genel",        IsSystem = true }
+        );
     }
 }

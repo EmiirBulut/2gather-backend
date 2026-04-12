@@ -1,0 +1,58 @@
+using MediatR;
+using TwoGather.Application.Common.Helpers;
+using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Features.Options.DTOs;
+using TwoGather.Domain.Enums;
+using TwoGather.Domain.Exceptions;
+
+namespace TwoGather.Application.Features.Options.Commands.UpdateOption;
+
+public class UpdateOptionCommandHandler : IRequestHandler<UpdateOptionCommand, ItemOptionDto>
+{
+    private readonly IOptionRepository _optionRepository;
+    private readonly IItemRepository _itemRepository;
+    private readonly IListRepository _listRepository;
+    private readonly INotificationService _notificationService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public UpdateOptionCommandHandler(
+        IOptionRepository optionRepository,
+        IItemRepository itemRepository,
+        IListRepository listRepository,
+        INotificationService notificationService,
+        ICurrentUserService currentUserService)
+    {
+        _optionRepository = optionRepository;
+        _itemRepository = itemRepository;
+        _listRepository = listRepository;
+        _notificationService = notificationService;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<ItemOptionDto> Handle(UpdateOptionCommand request, CancellationToken cancellationToken)
+    {
+        var option = await _optionRepository.GetByIdAsync(request.OptionId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Entities.ItemOption), request.OptionId);
+
+        var item = await _itemRepository.GetByIdAsync(option.ItemId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Entities.Item), option.ItemId);
+
+        var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
+        ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+
+        option.Title = request.Title;
+        option.Price = request.Price;
+        option.Currency = request.Currency;
+        option.Link = request.Link;
+        option.Notes = request.Notes;
+
+        await _optionRepository.UpdateAsync(option, cancellationToken);
+        await _optionRepository.SaveChangesAsync(cancellationToken);
+
+        var dto = new ItemOptionDto(option.Id, option.ItemId, option.Title, option.Price, option.Currency, option.Link, option.Notes, option.IsSelected, option.CreatedAt);
+
+        await _notificationService.OptionUpdatedAsync(item.ListId, item.Id, dto, cancellationToken);
+
+        return dto;
+    }
+}

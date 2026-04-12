@@ -32,6 +32,12 @@ public class OptionRepository : IOptionRepository
         return Task.CompletedTask;
     }
 
+    public Task UpdateRangeAsync(IEnumerable<ItemOption> options, CancellationToken cancellationToken = default)
+    {
+        _dbContext.ItemOptions.UpdateRange(options);
+        return Task.CompletedTask;
+    }
+
     public Task DeleteAsync(ItemOption option, CancellationToken cancellationToken = default)
     {
         _dbContext.ItemOptions.Remove(option);
