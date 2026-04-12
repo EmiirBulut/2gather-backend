@@ -22,8 +22,15 @@ public class ListRepository : IListRepository
             .Include(l => l.Members)
             .FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
 
+    public async Task<List?> GetByIdWithMembersAndUsersAsync(Guid id, CancellationToken cancellationToken = default)
+        => await _dbContext.Lists.AsNoTracking()
+            .Include(l => l.Members)
+                .ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+
     public async Task<IReadOnlyList<List>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
         => await _dbContext.Lists.AsNoTracking()
+            .Include(l => l.Members)
             .Where(l => l.Members.Any(m => m.UserId == userId))
             .ToListAsync(cancellationToken);
 
