@@ -26,7 +26,9 @@ public static class DependencyInjection
         services.AddScoped<IOptionRepository, OptionRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IListInviteRepository, ListInviteRepository>();
 
+        services.AddScoped<IEmailService, ConsoleEmailService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IDateTimeService, DateTimeService>();
