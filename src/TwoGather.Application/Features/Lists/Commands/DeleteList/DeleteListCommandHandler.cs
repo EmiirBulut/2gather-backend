@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
@@ -29,8 +30,7 @@ public class DeleteListCommandHandler : IRequestHandler<DeleteListCommand>
 
         var member = await _listRepository.GetMemberAsync(request.ListId, _currentUserService.UserId, cancellationToken);
 
-        if (member is null || member.Role != MemberRole.Owner)
-            throw new ForbiddenException("Only the list owner can delete the list.");
+        ListAuthorizationHelper.RequireRole(member, MemberRole.Owner);
 
         await _listRepository.DeleteAsync(list, cancellationToken);
         await _listRepository.SaveChangesAsync(cancellationToken);

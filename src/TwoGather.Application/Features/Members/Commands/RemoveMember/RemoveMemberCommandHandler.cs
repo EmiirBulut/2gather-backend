@@ -1,4 +1,5 @@
 using MediatR;
+using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
@@ -22,8 +23,7 @@ public class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCommand>
             ?? throw new NotFoundException(nameof(Domain.Entities.List), request.ListId);
 
         var callerMember = list.Members.FirstOrDefault(m => m.UserId == _currentUserService.UserId);
-        if (callerMember is null || callerMember.Role != MemberRole.Owner)
-            throw new ForbiddenException("Only the Owner can remove members.");
+        ListAuthorizationHelper.RequireRole(callerMember, MemberRole.Owner);
 
         if (request.UserId == _currentUserService.UserId)
             throw new DomainException("Owner cannot remove themselves from the list.");
