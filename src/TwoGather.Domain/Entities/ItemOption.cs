@@ -1,0 +1,16 @@
+namespace TwoGather.Domain.Entities;
+
+public class ItemOption
+{
+    public Guid Id { get; set; }
+    public Guid ItemId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal? Price { get; set; }
+    public string? Currency { get; set; }
+    public string? Link { get; set; }
+    public string? Notes { get; set; }
+    public bool IsSelected { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public Item Item { get; set; } = null!;
+}
