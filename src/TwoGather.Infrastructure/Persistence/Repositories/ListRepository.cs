@@ -47,6 +47,10 @@ public class ListRepository : IListRepository
         => await _dbContext.ListMembers.AsNoTracking()
             .FirstOrDefaultAsync(m => m.ListId == listId && m.UserId == userId, cancellationToken);
 
+    public async Task<ListMember?> GetOwnerAsync(Guid listId, CancellationToken cancellationToken = default)
+        => await _dbContext.ListMembers.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.ListId == listId && m.Role == Domain.Enums.MemberRole.Owner, cancellationToken);
+
     public async Task AddMemberAsync(ListMember member, CancellationToken cancellationToken = default)
         => await _dbContext.ListMembers.AddAsync(member, cancellationToken);
 

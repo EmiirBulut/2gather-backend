@@ -11,6 +11,7 @@ public interface IListRepository
     Task AddAsync(List list, CancellationToken cancellationToken = default);
     Task DeleteAsync(List list, CancellationToken cancellationToken = default);
     Task<ListMember?> GetMemberAsync(Guid listId, Guid userId, CancellationToken cancellationToken = default);
+    Task<ListMember?> GetOwnerAsync(Guid listId, CancellationToken cancellationToken = default);
     Task AddMemberAsync(ListMember member, CancellationToken cancellationToken = default);
     Task RemoveMemberAsync(ListMember member, CancellationToken cancellationToken = default);
     Task UpdateMemberAsync(ListMember member, CancellationToken cancellationToken = default);

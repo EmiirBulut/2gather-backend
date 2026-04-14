@@ -1,3 +1,5 @@
+using TwoGather.Application.Features.Claims.DTOs;
+
 namespace TwoGather.Application.Features.Options.DTOs;
 
 public record ItemOptionDto(
@@ -17,5 +19,8 @@ public record ItemOptionDto(
     int TotalRatings,
     int? CurrentUserScore,
     bool IsFinal,
-    DateTime? FinalizedAt
+    DateTime? FinalizedAt,
+    int ApprovedClaimsTotal,
+    int RemainingClaimPercentage,
+    List<ClaimDto> Claims
 );
