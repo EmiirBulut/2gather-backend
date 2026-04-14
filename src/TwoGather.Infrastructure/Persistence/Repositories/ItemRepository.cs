@@ -23,16 +23,24 @@ public class ItemRepository : IItemRepository
             .Include(i => i.Options)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<Item>> GetByListIdAsync(Guid listId, ItemStatus? status, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<(Item item, int optionsCount)>> GetByListIdAsync(Guid listId, ItemStatus? status, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Items.AsNoTracking()
-            .Include(i => i.Options)
             .Where(i => i.ListId == listId);
 
         if (status.HasValue)
             query = query.Where(i => i.Status == status.Value);
 
-        return await query.OrderBy(i => i.CreatedAt).ToListAsync(cancellationToken);
+        var rows = await query
+            .OrderBy(i => i.CreatedAt)
+            .Select(i => new
+            {
+                Item = i,
+                OptionsCount = _dbContext.ItemOptions.Count(o => o.ItemId == i.Id)
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => (r.Item, r.OptionsCount)).ToList();
     }
 
     public async Task AddAsync(Item item, CancellationToken cancellationToken = default)

@@ -17,6 +17,11 @@ public class OptionRepository : IOptionRepository
         => await _dbContext.ItemOptions.AsNoTracking()
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
+    public async Task<ItemOption?> GetByIdWithItemAsync(Guid id, CancellationToken cancellationToken = default)
+        => await _dbContext.ItemOptions.AsNoTracking()
+            .Include(o => o.Item)
+            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+
     public async Task<IReadOnlyList<ItemOption>> GetByItemIdAsync(Guid itemId, CancellationToken cancellationToken = default)
         => await _dbContext.ItemOptions.AsNoTracking()
             .Where(o => o.ItemId == itemId)

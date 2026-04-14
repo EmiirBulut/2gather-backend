@@ -30,15 +30,15 @@ public class GetItemsByListQueryHandler : IRequestHandler<GetItemsByListQuery, I
 
         var items = await _itemRepository.GetByListIdAsync(request.ListId, request.Status, cancellationToken);
 
-        return items.Select(i => new ItemDto(
-            i.Id,
-            i.ListId,
-            i.CategoryId,
-            i.Name,
-            i.Status,
-            i.PurchasedAt,
-            i.CreatedAt,
-            i.Options.Count
+        return items.Select(x => new ItemDto(
+            x.item.Id,
+            x.item.ListId,
+            x.item.CategoryId,
+            x.item.Name,
+            x.item.Status,
+            x.item.PurchasedAt,
+            x.item.CreatedAt,
+            x.optionsCount
         )).ToList();
     }
 }
