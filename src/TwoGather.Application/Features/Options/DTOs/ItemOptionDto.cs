@@ -12,5 +12,8 @@ public record ItemOptionDto(
     DateTime CreatedAt,
     string? Brand,
     string? Model,
-    string? Color
+    string? Color,
+    decimal? AverageRating,
+    int TotalRatings,
+    int? CurrentUserScore
 );

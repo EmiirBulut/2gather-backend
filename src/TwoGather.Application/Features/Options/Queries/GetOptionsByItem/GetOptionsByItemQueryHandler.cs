@@ -34,8 +34,24 @@ public class GetOptionsByItemQueryHandler : IRequestHandler<GetOptionsByItemQuer
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor, MemberRole.Viewer);
 
-        var options = await _optionRepository.GetByItemIdAsync(request.ItemId, cancellationToken);
+        var options = await _optionRepository.GetByItemIdWithRatingsAsync(request.ItemId, _currentUserService.UserId, cancellationToken);
 
-        return options.Select(o => new ItemOptionDto(o.Id, o.ItemId, o.Title, o.Price, o.Currency, o.Link, o.Notes, o.IsSelected, o.CreatedAt, o.Brand, o.Model, o.Color)).ToList();
+        return options.Select(x => new ItemOptionDto(
+            x.option.Id,
+            x.option.ItemId,
+            x.option.Title,
+            x.option.Price,
+            x.option.Currency,
+            x.option.Link,
+            x.option.Notes,
+            x.option.IsSelected,
+            x.option.CreatedAt,
+            x.option.Brand,
+            x.option.Model,
+            x.option.Color,
+            x.averageRating,
+            x.totalRatings,
+            x.currentUserScore
+        )).ToList();
     }
 }

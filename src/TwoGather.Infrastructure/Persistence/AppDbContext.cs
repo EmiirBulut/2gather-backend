@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<ItemOption> ItemOptions => Set<ItemOption>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ListInvite> ListInvites => Set<ListInvite>();
+    public DbSet<OptionRating> OptionRatings => Set<OptionRating>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -16,4 +16,5 @@ public class ItemOption
     public string? Color { get; set; }
 
     public Item Item { get; set; } = null!;
+    public ICollection<OptionRating> Ratings { get; set; } = new List<OptionRating>();
 }

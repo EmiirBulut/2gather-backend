@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IListInviteRepository, ListInviteRepository>();
         services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IOptionRatingRepository, OptionRatingRepository>();
 
         services.AddScoped<IEmailService, ConsoleEmailService>();
         services.AddScoped<ITokenService, TokenService>();
