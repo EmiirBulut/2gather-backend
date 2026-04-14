@@ -288,6 +288,368 @@ Test the full HTTP stack for auth register/login + create list + add item.
 
 ---
 
+## Phase 7 — Bug Fixes
+
+Bu phase'i yeni özelliklerden önce tamamla. Her adımı bitirdikten sonra `dotnet build` çalıştır.
+
+### Step 7.1 — Silme ve güncelleme düzeltmeleri
+
+`DeleteOptionCommand` ve `UpdateOptionCommand` handler'larında şunları doğrula:
+- `optionId` ile entity fetch ediliyor mu?
+- Fetch sonrası `option.Item.ListId` üzerinden caller'ın list member'ı olduğu kontrol ediliyor mu?
+- Eksikse `IOptionRepository`'ye `GetByIdWithItemAsync(Guid optionId)` metodu ekle, option'ı item navigation property'siyle birlikte getir.
+
+`DeleteItemCommand` ve `UpdateItemCommand` için de aynı kontrolü uygula: handler `itemId` ile item'ı fetch ediyor mu, ardından caller'ın list member'ı olduğunu doğruluyor mu?
+
+### Step 7.2 — Ondalıklı tutar precision
+
+`ItemOptionConfiguration.cs`'de `Price` alanının `HasPrecision(18, 2)` olarak tanımlı olduğunu doğrula. Eksikse düzelt ve migration ekle:
+```
+dotnet ef migrations add FixPricePrecision --project Infrastructure --startup-project Api
+```
+`ItemOptionDto`'da `Price` alanının `decimal?` tipinde olduğunu kontrol et — `double` veya `float` kullanılmışsa `decimal` olarak düzelt.
+
+### Step 7.3 — Options count düzeltmesi
+
+`GetItemsByListQuery` handler'ında `optionsCount` hesaplamasını kontrol et. Aşağıdaki gibi `.Select()` projeksiyonu içinde subquery olarak yazılmış olmalı:
+
+```csharp
+OptionsCount = context.ItemOptions.Count(o => o.ItemId == item.Id)
+```
+
+`Include()` ile navigation property yüklenip ardından `.Count` çağrılıyorsa bunu `.Select()` içi subquery'ye çevir — `Include` gereksiz veri çeker ve option'lar yüklenmemişse sıfır döner.
+
+### Step 7.4 — Satın alındı butonu düzeltmesi
+
+`MarkItemPurchasedCommand` handler'ında şunları sırayla doğrula:
+- Item `Status` alanı `ItemStatus.Purchased` olarak set ediliyor mu?
+- `PurchasedAt` = `IDateTimeService.UtcNow` olarak set ediliyor mu?
+- `SaveChangesAsync` çağrılıyor mu?
+- Handler sonunda `INotificationService.ItemPurchasedAsync` çağrılıyor mu?
+- `PATCH /api/items/{itemId}/status` route'u controller'da doğru tanımlı mı?
+
+Eksik olan her adımı tamamla.
+
+**Checkpoint**: Swagger üzerinden tüm bug fix senaryolarını test et. Silme, güncelleme, options count ve purchased işlemleri doğru çalışıyor olmalı.
+
+---
+
+## Phase 8 — Seçenek Alanı Genişletme (Marka, Model, Renk)
+
+### Step 8.1 — Domain değişikliği
+
+`Domain/Entities/ItemOption.cs`'e üç yeni opsiyonel alan ekle:
+
+```csharp
+public string? Brand { get; set; }
+public string? Model { get; set; }
+public string? Color { get; set; }
+```
+
+### Step 8.2 — EF Core konfigürasyonu
+
+`ItemOptionConfiguration.cs`'de yeni alanlar için:
+- `Brand`: `HasMaxLength(100)`, nullable
+- `Model`: `HasMaxLength(100)`, nullable
+- `Color`: `HasMaxLength(50)`, nullable
+
+Migration:
+```
+dotnet ef migrations add AddBrandModelColorToItemOption --project Infrastructure --startup-project Api
+```
+
+### Step 8.3 — DTO ve Command güncellemeleri
+
+`ItemOptionDto`'ya `Brand?`, `Model?`, `Color?` ekle.
+
+`CreateOptionCommand` ve `UpdateOptionCommand`'a aynı alanları ekle.
+
+`CreateOptionCommandValidator` ve `UpdateOptionCommandValidator`'a ekle:
+- `Brand`: opsiyonel, max 100 karakter
+- `Model`: opsiyonel, max 100 karakter
+- `Color`: opsiyonel, max 50 karakter
+
+`CreateOptionCommandHandler` ve `UpdateOptionCommandHandler`'da yeni alanların entity'ye map edildiğini doğrula.
+
+**Checkpoint**: `POST /api/items/{itemId}/options` body'sine `brand`, `model`, `color` eklenebiliyor ve `GET /api/items/{itemId}/options` yanıtında bu alanlar dönüyor olmalı.
+
+---
+
+## Phase 9 — Rating Sistemi
+
+### Step 9.1 — Domain entity
+
+`Domain/Entities/OptionRating.cs` oluştur:
+
+```csharp
+public Guid Id { get; set; }
+public Guid OptionId { get; set; }
+public ItemOption Option { get; set; } = null!;
+public Guid UserId { get; set; }
+public User User { get; set; } = null!;
+public int Score { get; set; }           // 1-5 arası
+public DateTime CreatedAt { get; set; }
+public DateTime? UpdatedAt { get; set; }
+```
+
+`ItemOption` entity'sine navigation ekle:
+```csharp
+public ICollection<OptionRating> Ratings { get; set; } = new List<OptionRating>();
+```
+
+### Step 9.2 — EF Core konfigürasyonu
+
+`Infrastructure/Persistence/Configurations/OptionRatingConfiguration.cs` oluştur:
+- Primary key: `Id`
+- Unique index: `(OptionId, UserId)` — bir kullanıcı bir seçeneğe yalnızca bir rating verebilir
+- `Score` check constraint: `Score >= 1 AND Score <= 5`
+- Cascade delete: `ItemOption` silinince `OptionRating`'ler silinir
+
+Migration:
+```
+dotnet ef migrations add AddOptionRating --project Infrastructure --startup-project Api
+```
+
+### Step 9.3 — Repository interface
+
+`Application/Common/Interfaces/IOptionRatingRepository.cs`:
+```csharp
+Task<OptionRating?> GetByOptionAndUserAsync(Guid optionId, Guid userId, CancellationToken ct);
+Task AddAsync(OptionRating rating, CancellationToken ct);
+Task SaveChangesAsync(CancellationToken ct);
+```
+
+### Step 9.4 — Command ve Query
+
+`Application/Features/Ratings/` klasörü oluştur:
+
+**`RateOptionCommand`** — `OptionId`, `Score` (1-5):
+- Caller list üyesi olmalı — Viewer dahil herkes rating verebilir
+- Seçenek mevcut olmalı, yoksa `NotFoundException`
+- Aynı kullanıcı aynı seçeneği daha önce ratinglemişse güncelle (upsert), yoksa yeni kayıt ekle
+- SignalR: `OptionRatingUpdated` eventi broadcast et: `{ listId, optionId, averageRating, totalRatings, currentUserScore }`
+
+**`GetOptionRatingsQuery`** — `OptionId`:
+- Tüm üyeler okuyabilir
+- Dönen DTO: `averageRating (decimal)`, `totalRatings (int)`, `currentUserScore (int?)` — giriş yapan kullanıcının skoru
+
+### Step 9.5 — DTO güncellemesi
+
+`ItemOptionDto`'ya ekle:
+```csharp
+public decimal? AverageRating { get; set; }
+public int TotalRatings { get; set; }
+public int? CurrentUserScore { get; set; }
+```
+
+`GetOptionsByItemQuery` handler'ını güncelle: her option için rating özetini tek `.Select()` projeksiyonu içinde hesapla, ayrı sorgu açma.
+
+### Step 9.6 — Controller
+
+`Api/Controllers/RatingsController.cs` oluştur:
+- `POST /api/options/{optionId}/ratings` — RateOptionCommand
+- `GET  /api/options/{optionId}/ratings` — GetOptionRatingsQuery
+
+`INotificationService`'e `OptionRatingUpdatedAsync(Guid listId, Guid optionId, CancellationToken ct)` ekle ve `SignalRNotificationService`'de implement et.
+
+**Checkpoint**: Bir seçeneğe rating ver. Farklı bir kullanıcıyla aynı seçeneğe farklı rating ver. `GET /api/options/{optionId}/ratings` doğru ortalama ve `currentUserScore` dönüyor olmalı. Aynı kullanıcı rating'ini güncelleyebiliyor olmalı.
+
+---
+
+## Phase 10 — Nihai Karar Sistemi
+
+### Step 10.1 — Domain değişikliği
+
+`Domain/Entities/ItemOption.cs`'e ekle:
+
+```csharp
+public bool IsFinal { get; set; }
+public DateTime? FinalizedAt { get; set; }
+public Guid? FinalizedBy { get; set; }
+```
+
+Migration:
+```
+dotnet ef migrations add AddFinalDecisionToItemOption --project Infrastructure --startup-project Api
+```
+
+### Step 10.2 — SetFinalOptionCommand
+
+`Application/Features/Options/SetFinalOptionCommand.cs`:
+- Sadece `Owner` çalıştırabilir, değilse `ForbiddenException`
+- Hedef seçenek bu item'a ait olmalı, değilse `NotFoundException`
+- Aynı item'ın başka bir seçeneğinde `IsFinal=true` varsa önce onu temizle: `IsFinal=false`, `FinalizedAt=null`, `FinalizedBy=null`
+- Hedef seçeneği set et: `IsFinal=true`, `FinalizedAt=UtcNow`, `FinalizedBy=currentUserId`
+- SignalR: `OptionFinalized` eventi broadcast et: `{ listId, itemId, finalOptionId }`
+
+### Step 10.3 — RemoveFinalDecisionCommand
+
+`Application/Features/Options/RemoveFinalDecisionCommand.cs`:
+- Sadece `Owner` çalıştırabilir
+- Hedef seçeneğin `IsFinal=true` olması gerekir, değilse `DomainException`
+- `IsFinal=false`, `FinalizedAt=null`, `FinalizedBy=null` yap
+- SignalR: `OptionFinalRemoved` eventi broadcast et: `{ listId, itemId, optionId }`
+
+### Step 10.4 — Mevcut command'lara kural ekleme
+
+`UpdateOptionCommand` handler'ında: seçenek `IsFinal=true` ve caller `Owner` değilse `ForbiddenException`.
+
+`DeleteOptionCommand` handler'ında: seçenek `IsFinal=true` ise `DomainException` — "Nihai kararı verilmiş seçenek silinemez. Önce nihai kararı kaldırın."
+
+### Step 10.5 — DTO ve Controller güncellemeleri
+
+`ItemOptionDto`'ya ekle:
+```csharp
+public bool IsFinal { get; set; }
+public DateTime? FinalizedAt { get; set; }
+```
+
+`OptionsController.cs`'e ekle:
+- `PATCH  /api/options/{optionId}/finalize` — SetFinalOptionCommand
+- `DELETE /api/options/{optionId}/finalize` — RemoveFinalDecisionCommand
+
+`INotificationService`'e `OptionFinalizedAsync` ve `OptionFinalRemovedAsync` ekle, `SignalRNotificationService`'de implement et.
+
+**Checkpoint**: Owner bir seçeneği nihai yapabilir. Aynı item'da başka seçenek nihai yapılınca önceki otomatik temizlenir. Editor bu endpoint'i çağırırsa 403 alır. Nihai seçeneği Editor güncellemeye çalışırsa 403 alır. Nihai seçenek silinemez.
+
+---
+
+## Phase 11 — Talip Olma Sistemi
+
+### Step 11.1 — Domain entity
+
+`Domain/Entities/OptionClaim.cs` oluştur:
+
+```csharp
+public Guid Id { get; set; }
+public Guid OptionId { get; set; }
+public ItemOption Option { get; set; } = null!;
+public Guid UserId { get; set; }
+public User User { get; set; } = null!;
+public int Percentage { get; set; }           // 25 / 50 / 75 / 100
+public ClaimStatus Status { get; set; }       // Pending / Approved / Rejected
+public DateTime CreatedAt { get; set; }
+public DateTime? ReviewedAt { get; set; }
+public Guid? ReviewedBy { get; set; }
+```
+
+`Domain/Enums/ClaimStatus.cs`:
+```csharp
+public enum ClaimStatus { Pending, Approved, Rejected }
+```
+
+`ItemOption` entity'sine navigation ekle:
+```csharp
+public ICollection<OptionClaim> Claims { get; set; } = new List<OptionClaim>();
+```
+
+### Step 11.2 — EF Core konfigürasyonu
+
+`Infrastructure/Persistence/Configurations/OptionClaimConfiguration.cs`:
+- Primary key: `Id`
+- `Percentage` check constraint: değer 25, 50, 75 veya 100 olmalı
+- Index: `(OptionId, UserId)` — unique değil, sorgu performansı için
+- Cascade delete: `ItemOption` silinince `OptionClaim`'ler silinir
+
+Migration:
+```
+dotnet ef migrations add AddOptionClaim --project Infrastructure --startup-project Api
+```
+
+### Step 11.3 — Repository interface
+
+`Application/Common/Interfaces/IOptionClaimRepository.cs`:
+```csharp
+Task<OptionClaim?> GetByIdAsync(Guid id, CancellationToken ct);
+Task<List<OptionClaim>> GetByOptionIdAsync(Guid optionId, CancellationToken ct);
+Task<int> GetApprovedPercentageTotalAsync(Guid optionId, CancellationToken ct);
+Task AddAsync(OptionClaim claim, CancellationToken ct);
+Task SaveChangesAsync(CancellationToken ct);
+```
+
+### Step 11.4 — CreateClaimCommand
+
+`Application/Features/Claims/CreateClaimCommand.cs` — `OptionId`, `Percentage`:
+
+İş kuralları sırasıyla:
+1. Caller list üyesi olmalı; `Viewer` rolü `ForbiddenException` alır
+2. Hedef seçenek `IsFinal=true` olmalı — değilse `DomainException`: "Yalnızca nihai kararı verilmiş seçeneklere talip olunabilir"
+3. Item `Status=Purchased` ise `DomainException`: "Satın alınan ürüne yeni talip eklenemez"
+4. `approvedTotal = GetApprovedPercentageTotalAsync(optionId)` hesapla
+5. `approvedTotal + Percentage > 100` ise `DomainException`: "Talep edilen yüzde kapasiteyi aşıyor. Kalan: {100 - approvedTotal}%"
+6. `OptionClaim` oluştur, `Status=Pending`
+7. SignalR: `ClaimCreated` eventi broadcast et: `{ listId, optionId, claim: ClaimDto }`
+8. Owner'a özel bildirim: `INotificationService.ClaimPendingNotificationAsync` çağır
+
+### Step 11.5 — ReviewClaimCommand
+
+`Application/Features/Claims/ReviewClaimCommand.cs` — `ClaimId`, `Decision` (Approved/Rejected):
+
+İş kuralları:
+1. Sadece `Owner` çalıştırabilir
+2. Claim `Status=Pending` olmalı — değilse `DomainException`
+3. `Decision=Approved` ise: `approvedTotal`'ı yeniden hesapla (race condition koruması), `approvedTotal + claim.Percentage > 100` ise `DomainException`
+4. `Status`, `ReviewedAt`, `ReviewedBy` güncelle
+5. SignalR: `ClaimApproved` veya `ClaimRejected` eventi broadcast et: `{ listId, optionId, claim: ClaimDto }`
+
+### Step 11.6 — GetClaimsByOptionQuery
+
+`Application/Features/Claims/GetClaimsByOptionQuery.cs` — `OptionId`:
+- Tüm list üyeleri okuyabilir
+- Dönen: `ClaimDto[]` — her claim için `id`, `userId`, `displayName`, `percentage`, `status`, `createdAt`
+
+### Step 11.7 — MarkItemPurchasedCommand güncellemesi
+
+Mevcut `MarkItemPurchasedCommand` handler'ında yetki kontrolünü aşağıdaki mantıkla güncelle:
+
+```
+1. Item'ın final seçeneğini bul (IsFinal=true olan option)
+2. Final seçeneğin Approved claim'leri var mı kontrol et
+3. Var ise: caller bu claim'lerden birinin UserId'si mi? Değilse ForbiddenException
+4. Yok ise: caller Owner mı? Değilse ForbiddenException
+5. Kontrolü geçtiyse item'ı Purchased olarak işaretle
+```
+
+### Step 11.8 — DTO ve Controller güncellemeleri
+
+`ClaimDto.cs` oluştur:
+```csharp
+public Guid Id { get; set; }
+public Guid UserId { get; set; }
+public string DisplayName { get; set; } = string.Empty;
+public int Percentage { get; set; }
+public ClaimStatus Status { get; set; }
+public DateTime CreatedAt { get; set; }
+```
+
+`ItemOptionDto`'ya ekle:
+```csharp
+public int ApprovedClaimsTotal { get; set; }
+public int RemainingClaimPercentage { get; set; }
+public List<ClaimDto> Claims { get; set; } = new();
+```
+
+`GetOptionsByItemQuery` handler'ını güncelle: her option için claim özetini tek `.Select()` içinde hesapla.
+
+`Api/Controllers/ClaimsController.cs` oluştur:
+- `POST  /api/options/{optionId}/claims` — CreateClaimCommand
+- `GET   /api/options/{optionId}/claims` — GetClaimsByOptionQuery
+- `PATCH /api/claims/{claimId}/review` — ReviewClaimCommand
+
+`INotificationService`'e ekle ve `SignalRNotificationService`'de implement et:
+- `ClaimCreatedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken ct)`
+- `ClaimReviewedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken ct)`
+- `ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken ct)`
+
+**Checkpoint**:
+- Nihai kararı verilmemiş seçeneğe talip olmaya çalışınca 422 alınır
+- Nihai seçeneğe Editor talip olabilir, Pending durumunda görünür
+- Owner claim'i onaylar, `approvedTotal` güncellenir, kalan yüzde düşer
+- Toplam %100 dolan seçeneğe yeni talip eklenince 422 alınır
+- Onaylı talibi olan kullanıcı ürünü satın alındı işaretleyebilir; hiç talip yoksa Owner işaretler
+
+---
+
 ## General Rules for Every Code Change
 
 1. Follow CLAUDE.md conventions without exception.
