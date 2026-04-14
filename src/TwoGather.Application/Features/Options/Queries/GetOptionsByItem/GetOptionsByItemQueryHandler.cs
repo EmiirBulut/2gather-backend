@@ -36,6 +36,6 @@ public class GetOptionsByItemQueryHandler : IRequestHandler<GetOptionsByItemQuer
 
         var options = await _optionRepository.GetByItemIdAsync(request.ItemId, cancellationToken);
 
-        return options.Select(o => new ItemOptionDto(o.Id, o.ItemId, o.Title, o.Price, o.Currency, o.Link, o.Notes, o.IsSelected, o.CreatedAt)).ToList();
+        return options.Select(o => new ItemOptionDto(o.Id, o.ItemId, o.Title, o.Price, o.Currency, o.Link, o.Notes, o.IsSelected, o.CreatedAt, o.Brand, o.Model, o.Color)).ToList();
     }
 }

@@ -11,6 +11,9 @@ public class ItemOption
     public string? Notes { get; set; }
     public bool IsSelected { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public string? Color { get; set; }
 
     public Item Item { get; set; } = null!;
 }

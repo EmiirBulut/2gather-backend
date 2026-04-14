@@ -37,7 +37,7 @@ public class OptionsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(
-            new CreateOptionCommand(itemId, request.Title, request.Price, request.Currency, request.Link, request.Notes),
+            new CreateOptionCommand(itemId, request.Title, request.Price, request.Currency, request.Link, request.Notes, request.Brand, request.Model, request.Color),
             cancellationToken);
         return Ok(result);
     }
@@ -49,7 +49,7 @@ public class OptionsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(
-            new UpdateOptionCommand(optionId, request.Title, request.Price, request.Currency, request.Link, request.Notes),
+            new UpdateOptionCommand(optionId, request.Title, request.Price, request.Currency, request.Link, request.Notes, request.Brand, request.Model, request.Color),
             cancellationToken);
         return Ok(result);
     }
@@ -71,5 +71,5 @@ public class OptionsController : ControllerBase
     }
 }
 
-public record CreateOptionRequest(string Title, decimal? Price, string? Currency, string? Link, string? Notes);
-public record UpdateOptionRequest(string Title, decimal? Price, string? Currency, string? Link, string? Notes);
+public record CreateOptionRequest(string Title, decimal? Price, string? Currency, string? Link, string? Notes, string? Brand, string? Model, string? Color);
+public record UpdateOptionRequest(string Title, decimal? Price, string? Currency, string? Link, string? Notes, string? Brand, string? Model, string? Color);

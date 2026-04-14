@@ -9,5 +9,8 @@ public record CreateOptionCommand(
     decimal? Price,
     string? Currency,
     string? Link,
-    string? Notes
+    string? Notes,
+    string? Brand,
+    string? Model,
+    string? Color
 ) : IRequest<ItemOptionDto>;
