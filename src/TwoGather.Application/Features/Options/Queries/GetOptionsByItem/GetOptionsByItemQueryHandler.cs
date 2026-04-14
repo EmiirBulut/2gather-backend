@@ -51,7 +51,9 @@ public class GetOptionsByItemQueryHandler : IRequestHandler<GetOptionsByItemQuer
             x.option.Color,
             x.averageRating,
             x.totalRatings,
-            x.currentUserScore
+            x.currentUserScore,
+            x.option.IsFinal,
+            x.option.FinalizedAt
         )).ToList();
     }
 }

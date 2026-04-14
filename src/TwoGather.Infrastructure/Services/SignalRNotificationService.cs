@@ -44,4 +44,10 @@ public class SignalRNotificationService<THub> : INotificationService where THub 
 
     public Task OptionRatingUpdatedAsync(Guid listId, Guid optionId, CancellationToken cancellationToken = default)
         => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionRatingUpdated", new { listId, optionId }, cancellationToken);
+
+    public Task OptionFinalizedAsync(Guid listId, Guid itemId, Guid finalOptionId, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionFinalized", new { listId, itemId, finalOptionId }, cancellationToken);
+
+    public Task OptionFinalRemovedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionFinalRemoved", new { listId, itemId, optionId }, cancellationToken);
 }

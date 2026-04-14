@@ -15,5 +15,7 @@ public record ItemOptionDto(
     string? Color,
     decimal? AverageRating,
     int TotalRatings,
-    int? CurrentUserScore
+    int? CurrentUserScore,
+    bool IsFinal,
+    DateTime? FinalizedAt
 );

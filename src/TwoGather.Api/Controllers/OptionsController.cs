@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TwoGather.Application.Features.Options.Commands.CreateOption;
 using TwoGather.Application.Features.Options.Commands.DeleteOption;
+using TwoGather.Application.Features.Options.Commands.RemoveFinalDecision;
 using TwoGather.Application.Features.Options.Commands.SelectOption;
+using TwoGather.Application.Features.Options.Commands.SetFinalOption;
 using TwoGather.Application.Features.Options.Commands.UpdateOption;
 using TwoGather.Application.Features.Options.DTOs;
 using TwoGather.Application.Features.Options.Queries.GetOptionsByItem;
@@ -67,6 +69,20 @@ public class OptionsController : ControllerBase
     public async Task<IActionResult> DeleteOption(Guid optionId, CancellationToken cancellationToken)
     {
         await _mediator.Send(new DeleteOptionCommand(optionId), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPatch("api/options/{optionId:guid}/finalize")]
+    public async Task<IActionResult> SetFinalOption(Guid optionId, CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new SetFinalOptionCommand(optionId), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("api/options/{optionId:guid}/finalize")]
+    public async Task<IActionResult> RemoveFinalDecision(Guid optionId, CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new RemoveFinalDecisionCommand(optionId), cancellationToken);
         return NoContent();
     }
 }

@@ -4,16 +4,16 @@ using TwoGather.Application.Common.Interfaces;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
 
-namespace TwoGather.Application.Features.Options.Commands.DeleteOption;
+namespace TwoGather.Application.Features.Options.Commands.RemoveFinalDecision;
 
-public class DeleteOptionCommandHandler : IRequestHandler<DeleteOptionCommand>
+public class RemoveFinalDecisionCommandHandler : IRequestHandler<RemoveFinalDecisionCommand>
 {
     private readonly IOptionRepository _optionRepository;
     private readonly IListRepository _listRepository;
     private readonly INotificationService _notificationService;
     private readonly ICurrentUserService _currentUserService;
 
-    public DeleteOptionCommandHandler(
+    public RemoveFinalDecisionCommandHandler(
         IOptionRepository optionRepository,
         IListRepository listRepository,
         INotificationService notificationService,
@@ -25,24 +25,24 @@ public class DeleteOptionCommandHandler : IRequestHandler<DeleteOptionCommand>
         _currentUserService = currentUserService;
     }
 
-    public async Task Handle(DeleteOptionCommand request, CancellationToken cancellationToken)
+    public async Task Handle(RemoveFinalDecisionCommand request, CancellationToken cancellationToken)
     {
         var option = await _optionRepository.GetByIdWithItemAsync(request.OptionId, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.ItemOption), request.OptionId);
 
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
-        ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        ListAuthorizationHelper.RequireRole(member, MemberRole.Owner);
 
-        if (option.IsFinal)
-            throw new DomainException("Nihai kararı verilmiş seçenek silinemez. Önce nihai kararı kaldırın.");
+        if (!option.IsFinal)
+            throw new DomainException("Bu seçeneğe nihai karar verilmemiş.");
 
-        var listId = option.Item.ListId;
-        var itemId = option.Item.Id;
-        var optionId = option.Id;
+        option.IsFinal = false;
+        option.FinalizedAt = null;
+        option.FinalizedBy = null;
 
-        await _optionRepository.DeleteAsync(option, cancellationToken);
+        await _optionRepository.UpdateAsync(option, cancellationToken);
         await _optionRepository.SaveChangesAsync(cancellationToken);
 
-        await _notificationService.OptionDeletedAsync(listId, itemId, optionId, cancellationToken);
+        await _notificationService.OptionFinalRemovedAsync(option.Item.ListId, option.Item.Id, option.Id, cancellationToken);
     }
 }

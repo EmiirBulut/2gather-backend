@@ -34,6 +34,9 @@ public class UpdateOptionCommandHandler : IRequestHandler<UpdateOptionCommand, I
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
 
+        if (option.IsFinal && member!.Role != MemberRole.Owner)
+            throw new ForbiddenException();
+
         option.Title = request.Title;
         option.Price = request.Price;
         option.Currency = request.Currency;
@@ -46,7 +49,7 @@ public class UpdateOptionCommandHandler : IRequestHandler<UpdateOptionCommand, I
         await _optionRepository.UpdateAsync(option, cancellationToken);
         await _optionRepository.SaveChangesAsync(cancellationToken);
 
-        var dto = new ItemOptionDto(option.Id, option.ItemId, option.Title, option.Price, option.Currency, option.Link, option.Notes, option.IsSelected, option.CreatedAt, option.Brand, option.Model, option.Color, null, 0, null);
+        var dto = new ItemOptionDto(option.Id, option.ItemId, option.Title, option.Price, option.Currency, option.Link, option.Notes, option.IsSelected, option.CreatedAt, option.Brand, option.Model, option.Color, null, 0, null, option.IsFinal, option.FinalizedAt);
 
         await _notificationService.OptionUpdatedAsync(option.Item.ListId, option.Item.Id, dto, cancellationToken);
 
