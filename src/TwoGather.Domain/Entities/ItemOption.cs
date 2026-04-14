@@ -14,6 +14,9 @@ public class ItemOption
     public string? Brand { get; set; }
     public string? Model { get; set; }
     public string? Color { get; set; }
+    public bool IsFinal { get; set; }
+    public DateTime? FinalizedAt { get; set; }
+    public Guid? FinalizedBy { get; set; }
 
     public Item Item { get; set; } = null!;
     public ICollection<OptionRating> Ratings { get; set; } = new List<OptionRating>();

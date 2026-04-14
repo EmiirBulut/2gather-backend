@@ -57,6 +57,10 @@ public class OptionRepository : IOptionRepository
         return rows.Select(r => (r.Option, r.AverageRating, r.TotalRatings, r.CurrentUserScore == 0 ? null : r.CurrentUserScore)).ToList();
     }
 
+    public async Task<ItemOption?> GetCurrentFinalOptionForItemAsync(Guid itemId, CancellationToken cancellationToken = default)
+        => await _dbContext.ItemOptions
+            .FirstOrDefaultAsync(o => o.ItemId == itemId && o.IsFinal, cancellationToken);
+
     public async Task AddAsync(ItemOption option, CancellationToken cancellationToken = default)
         => await _dbContext.ItemOptions.AddAsync(option, cancellationToken);
 
