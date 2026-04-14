@@ -1,3 +1,4 @@
+using TwoGather.Application.Features.Claims.DTOs;
 using TwoGather.Application.Features.Items.DTOs;
 using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Application.Features.Options.DTOs;
@@ -18,4 +19,7 @@ public interface INotificationService
     Task OptionRatingUpdatedAsync(Guid listId, Guid optionId, CancellationToken cancellationToken = default);
     Task OptionFinalizedAsync(Guid listId, Guid itemId, Guid finalOptionId, CancellationToken cancellationToken = default);
     Task OptionFinalRemovedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default);
+    Task ClaimCreatedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
+    Task ClaimReviewedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
+    Task ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken cancellationToken = default);
 }

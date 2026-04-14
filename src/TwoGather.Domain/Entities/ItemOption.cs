@@ -20,4 +20,5 @@ public class ItemOption
 
     public Item Item { get; set; } = null!;
     public ICollection<OptionRating> Ratings { get; set; } = new List<OptionRating>();
+    public ICollection<OptionClaim> Claims { get; set; } = new List<OptionClaim>();
 }

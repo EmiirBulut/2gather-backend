@@ -61,6 +61,37 @@ public class OptionRepository : IOptionRepository
         => await _dbContext.ItemOptions
             .FirstOrDefaultAsync(o => o.ItemId == itemId && o.IsFinal, cancellationToken);
 
+    public async Task<IReadOnlyList<(ItemOption option, decimal? averageRating, int totalRatings, int? currentUserScore, int approvedClaimsTotal, List<Domain.Entities.OptionClaim> claims)>> GetByItemIdWithRatingsAndClaimsAsync(Guid itemId, Guid currentUserId, CancellationToken cancellationToken = default)
+    {
+        var options = await _dbContext.ItemOptions.AsNoTracking()
+            .Where(o => o.ItemId == itemId)
+            .OrderBy(o => o.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var optionIds = options.Select(o => o.Id).ToList();
+
+        var ratings = await _dbContext.OptionRatings.AsNoTracking()
+            .Where(r => optionIds.Contains(r.OptionId))
+            .ToListAsync(cancellationToken);
+
+        var claims = await _dbContext.OptionClaims.AsNoTracking()
+            .Include(c => c.User)
+            .Where(c => optionIds.Contains(c.OptionId))
+            .OrderBy(c => c.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return options.Select(o =>
+        {
+            var optRatings = ratings.Where(r => r.OptionId == o.Id).ToList();
+            var total = optRatings.Count;
+            var avg = total > 0 ? (decimal?)optRatings.Average(r => r.Score) : null;
+            var userScore = optRatings.FirstOrDefault(r => r.UserId == currentUserId)?.Score;
+            var optClaims = claims.Where(c => c.OptionId == o.Id).ToList();
+            var approvedTotal = optClaims.Where(c => c.Status == Domain.Enums.ClaimStatus.Approved).Sum(c => c.Percentage);
+            return (o, avg, total, userScore == null ? (int?)null : userScore, approvedTotal, optClaims);
+        }).ToList();
+    }
+
     public async Task AddAsync(ItemOption option, CancellationToken cancellationToken = default)
         => await _dbContext.ItemOptions.AddAsync(option, cancellationToken);
 

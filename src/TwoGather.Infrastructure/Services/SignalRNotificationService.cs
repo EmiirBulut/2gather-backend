@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Features.Claims.DTOs;
 using TwoGather.Application.Features.Items.DTOs;
 using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Application.Features.Options.DTOs;
@@ -50,4 +51,13 @@ public class SignalRNotificationService<THub> : INotificationService where THub 
 
     public Task OptionFinalRemovedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default)
         => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionFinalRemoved", new { listId, itemId, optionId }, cancellationToken);
+
+    public Task ClaimCreatedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("ClaimCreated", new { listId, optionId, claim }, cancellationToken);
+
+    public Task ClaimReviewedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("ClaimReviewed", new { listId, optionId, claim }, cancellationToken);
+
+    public Task ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.User(ownerUserId.ToString()).SendAsync("ClaimPending", new { listId, claim }, cancellationToken);
 }

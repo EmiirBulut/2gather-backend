@@ -12,6 +12,8 @@ public class MarkItemPurchasedCommandHandlerTests
 {
     private readonly Mock<IItemRepository> _itemRepo = new();
     private readonly Mock<IListRepository> _listRepo = new();
+    private readonly Mock<IOptionRepository> _optionRepo = new();
+    private readonly Mock<IOptionClaimRepository> _claimRepo = new();
     private readonly Mock<INotificationService> _notifications = new();
     private readonly Mock<ICurrentUserService> _currentUser = new();
     private readonly Mock<IDateTimeService> _dateTime = new();
@@ -23,6 +25,8 @@ public class MarkItemPurchasedCommandHandlerTests
     private MarkItemPurchasedCommandHandler CreateHandler() => new(
         _itemRepo.Object,
         _listRepo.Object,
+        _optionRepo.Object,
+        _claimRepo.Object,
         _notifications.Object,
         _currentUser.Object,
         _dateTime.Object,
@@ -51,6 +55,9 @@ public class MarkItemPurchasedCommandHandlerTests
     {
         _currentUser.Setup(s => s.UserId).Returns(_userId);
         _dateTime.Setup(s => s.UtcNow).Returns(_now);
+        // Default: no final option on any item
+        _optionRepo.Setup(r => r.GetCurrentFinalOptionForItemAsync(It.IsAny<Guid>(), default))
+            .ReturnsAsync((ItemOption?)null);
     }
 
     [Fact]
@@ -70,15 +77,31 @@ public class MarkItemPurchasedCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EditorMarksItem_Succeeds()
+    public async Task Handle_EditorWithApprovedClaim_Succeeds()
+    {
+        var item = MakeItem();
+        var finalOption = new ItemOption { Id = Guid.NewGuid(), ItemId = item.Id };
+        var approvedClaim = new OptionClaim { Id = Guid.NewGuid(), OptionId = finalOption.Id, UserId = _userId, Percentage = 50, Status = ClaimStatus.Approved };
+
+        _itemRepo.Setup(r => r.GetByIdAsync(item.Id, default)).ReturnsAsync(item);
+        _listRepo.Setup(r => r.GetMemberAsync(_listId, _userId, default)).ReturnsAsync(MakeMember(MemberRole.Editor));
+        _optionRepo.Setup(r => r.GetCurrentFinalOptionForItemAsync(item.Id, default)).ReturnsAsync(finalOption);
+        _claimRepo.Setup(r => r.GetByOptionIdAsync(finalOption.Id, default)).ReturnsAsync(new List<OptionClaim> { approvedClaim });
+
+        await CreateHandler().Handle(new MarkItemPurchasedCommand(item.Id), default);
+
+        Assert.Equal(ItemStatus.Purchased, item.Status);
+    }
+
+    [Fact]
+    public async Task Handle_EditorWithoutClaim_ThrowsForbidden()
     {
         var item = MakeItem();
         _itemRepo.Setup(r => r.GetByIdAsync(item.Id, default)).ReturnsAsync(item);
         _listRepo.Setup(r => r.GetMemberAsync(_listId, _userId, default)).ReturnsAsync(MakeMember(MemberRole.Editor));
 
-        await CreateHandler().Handle(new MarkItemPurchasedCommand(item.Id), default);
-
-        Assert.Equal(ItemStatus.Purchased, item.Status);
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            CreateHandler().Handle(new MarkItemPurchasedCommand(item.Id), default));
     }
 
     [Fact]

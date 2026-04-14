@@ -1,6 +1,7 @@
 using MediatR;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Features.Claims.DTOs;
 using TwoGather.Application.Features.Options.DTOs;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
@@ -34,7 +35,7 @@ public class GetOptionsByItemQueryHandler : IRequestHandler<GetOptionsByItemQuer
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor, MemberRole.Viewer);
 
-        var options = await _optionRepository.GetByItemIdWithRatingsAsync(request.ItemId, _currentUserService.UserId, cancellationToken);
+        var options = await _optionRepository.GetByItemIdWithRatingsAndClaimsAsync(request.ItemId, _currentUserService.UserId, cancellationToken);
 
         return options.Select(x => new ItemOptionDto(
             x.option.Id,
@@ -53,7 +54,10 @@ public class GetOptionsByItemQueryHandler : IRequestHandler<GetOptionsByItemQuer
             x.totalRatings,
             x.currentUserScore,
             x.option.IsFinal,
-            x.option.FinalizedAt
+            x.option.FinalizedAt,
+            x.approvedClaimsTotal,
+            100 - x.approvedClaimsTotal,
+            x.claims.Select(c => new ClaimDto(c.Id, c.UserId, c.User.DisplayName, c.Percentage, c.Status, c.CreatedAt)).ToList()
         )).ToList();
     }
 }
