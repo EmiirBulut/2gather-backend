@@ -46,7 +46,7 @@ public class UpdateOptionCommandHandler : IRequestHandler<UpdateOptionCommand, I
         await _optionRepository.UpdateAsync(option, cancellationToken);
         await _optionRepository.SaveChangesAsync(cancellationToken);
 
-        var dto = new ItemOptionDto(option.Id, option.ItemId, option.Title, option.Price, option.Currency, option.Link, option.Notes, option.IsSelected, option.CreatedAt, option.Brand, option.Model, option.Color);
+        var dto = new ItemOptionDto(option.Id, option.ItemId, option.Title, option.Price, option.Currency, option.Link, option.Notes, option.IsSelected, option.CreatedAt, option.Brand, option.Model, option.Color, null, 0, null);
 
         await _notificationService.OptionUpdatedAsync(option.Item.ListId, option.Item.Id, dto, cancellationToken);
 

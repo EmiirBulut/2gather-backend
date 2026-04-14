@@ -15,4 +15,5 @@ public interface INotificationService
     Task OptionDeletedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default);
     Task MemberJoinedAsync(Guid listId, MemberDto member, CancellationToken cancellationToken = default);
     Task MemberRemovedAsync(Guid listId, Guid userId, CancellationToken cancellationToken = default);
+    Task OptionRatingUpdatedAsync(Guid listId, Guid optionId, CancellationToken cancellationToken = default);
 }

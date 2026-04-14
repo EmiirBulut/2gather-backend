@@ -22,11 +22,40 @@ public class OptionRepository : IOptionRepository
             .Include(o => o.Item)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<OptionRating>> GetRatingsForOptionAsync(Guid optionId, CancellationToken cancellationToken = default)
+        => await _dbContext.OptionRatings.AsNoTracking()
+            .Where(r => r.OptionId == optionId)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<ItemOption>> GetByItemIdAsync(Guid itemId, CancellationToken cancellationToken = default)
         => await _dbContext.ItemOptions.AsNoTracking()
             .Where(o => o.ItemId == itemId)
             .OrderBy(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<(ItemOption option, decimal? averageRating, int totalRatings, int? currentUserScore)>> GetByItemIdWithRatingsAsync(Guid itemId, Guid currentUserId, CancellationToken cancellationToken = default)
+    {
+        var rows = await _dbContext.ItemOptions.AsNoTracking()
+            .Where(o => o.ItemId == itemId)
+            .OrderBy(o => o.CreatedAt)
+            .Select(o => new
+            {
+                Option = o,
+                AverageRating = _dbContext.OptionRatings
+                    .Where(r => r.OptionId == o.Id).Any()
+                    ? (decimal?)_dbContext.OptionRatings
+                        .Where(r => r.OptionId == o.Id).Average(r => r.Score)
+                    : null,
+                TotalRatings = _dbContext.OptionRatings.Count(r => r.OptionId == o.Id),
+                CurrentUserScore = (int?)_dbContext.OptionRatings
+                    .Where(r => r.OptionId == o.Id && r.UserId == currentUserId)
+                    .Select(r => r.Score)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => (r.Option, r.AverageRating, r.TotalRatings, r.CurrentUserScore == 0 ? null : r.CurrentUserScore)).ToList();
+    }
 
     public async Task AddAsync(ItemOption option, CancellationToken cancellationToken = default)
         => await _dbContext.ItemOptions.AddAsync(option, cancellationToken);
