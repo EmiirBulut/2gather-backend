@@ -26,6 +26,15 @@ public class ItemOptionConfiguration : IEntityTypeConfiguration<ItemOption>
         builder.Property(o => o.Link)
             .HasMaxLength(2048);
 
+        builder.Property(o => o.Brand)
+            .HasMaxLength(100);
+
+        builder.Property(o => o.Model)
+            .HasMaxLength(100);
+
+        builder.Property(o => o.Color)
+            .HasMaxLength(50);
+
         builder.Property(o => o.IsSelected)
             .IsRequired();
 

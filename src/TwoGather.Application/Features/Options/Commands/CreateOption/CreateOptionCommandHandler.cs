@@ -51,13 +51,16 @@ public class CreateOptionCommandHandler : IRequestHandler<CreateOptionCommand, I
             Link = request.Link,
             Notes = request.Notes,
             IsSelected = false,
-            CreatedAt = _dateTimeService.UtcNow
+            CreatedAt = _dateTimeService.UtcNow,
+            Brand = request.Brand,
+            Model = request.Model,
+            Color = request.Color
         };
 
         await _optionRepository.AddAsync(option, cancellationToken);
         await _optionRepository.SaveChangesAsync(cancellationToken);
 
-        var dto = new ItemOptionDto(option.Id, option.ItemId, option.Title, option.Price, option.Currency, option.Link, option.Notes, option.IsSelected, option.CreatedAt);
+        var dto = new ItemOptionDto(option.Id, option.ItemId, option.Title, option.Price, option.Currency, option.Link, option.Notes, option.IsSelected, option.CreatedAt, option.Brand, option.Model, option.Color);
 
         await _notificationService.OptionAddedAsync(item.ListId, item.Id, dto, cancellationToken);
 

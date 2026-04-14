@@ -9,5 +9,8 @@ public record ItemOptionDto(
     string? Link,
     string? Notes,
     bool IsSelected,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? Brand,
+    string? Model,
+    string? Color
 );
