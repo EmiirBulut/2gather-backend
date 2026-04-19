@@ -17,12 +17,34 @@ public class ListInviteRepository : IListInviteRepository
         => await _dbContext.ListInvites.AsNoTracking()
             .FirstOrDefaultAsync(i => i.Token == token, cancellationToken);
 
+    public async Task<ListInvite?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        => await _dbContext.ListInvites
+            .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<ListInvite>> GetByListIdAsync(Guid listId, CancellationToken cancellationToken = default)
+        => await _dbContext.ListInvites.AsNoTracking()
+            .Where(i => i.ListId == listId && i.AcceptedAt == null)
+            .OrderBy(i => i.CreatedAt)
+            .ToListAsync(cancellationToken);
+
     public async Task AddAsync(ListInvite invite, CancellationToken cancellationToken = default)
         => await _dbContext.ListInvites.AddAsync(invite, cancellationToken);
 
     public Task UpdateAcceptedAtAsync(ListInvite invite, CancellationToken cancellationToken = default)
     {
         _dbContext.ListInvites.Update(invite);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(ListInvite invite, CancellationToken cancellationToken = default)
+    {
+        _dbContext.ListInvites.Update(invite);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(ListInvite invite, CancellationToken cancellationToken = default)
+    {
+        _dbContext.ListInvites.Remove(invite);
         return Task.CompletedTask;
     }
 
