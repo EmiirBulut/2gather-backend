@@ -1,6 +1,7 @@
 using TwoGather.Application.Features.Claims.DTOs;
 using TwoGather.Application.Features.Items.DTOs;
 using TwoGather.Application.Features.Members.DTOs;
+using TwoGather.Application.Features.Notifications.DTOs;
 using TwoGather.Application.Features.Options.DTOs;
 
 namespace TwoGather.Application.Common.Interfaces;
@@ -23,4 +24,5 @@ public interface INotificationService
     Task ClaimCreatedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
     Task ClaimReviewedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
     Task ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken cancellationToken = default);
+    Task NotificationCountChangedAsync(Guid listId, Guid ownerUserId, NotificationCountDto count, CancellationToken cancellationToken = default);
 }

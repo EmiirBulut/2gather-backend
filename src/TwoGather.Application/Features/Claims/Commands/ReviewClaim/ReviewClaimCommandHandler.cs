@@ -2,6 +2,7 @@ using MediatR;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Claims.DTOs;
+using TwoGather.Application.Features.Notifications.DTOs;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
 
@@ -12,6 +13,7 @@ public class ReviewClaimCommandHandler : IRequestHandler<ReviewClaimCommand, Cla
     private readonly IOptionClaimRepository _claimRepository;
     private readonly IOptionRepository _optionRepository;
     private readonly IListRepository _listRepository;
+    private readonly IListInviteRepository _inviteRepository;
     private readonly IUserRepository _userRepository;
     private readonly INotificationService _notificationService;
     private readonly ICurrentUserService _currentUserService;
@@ -21,6 +23,7 @@ public class ReviewClaimCommandHandler : IRequestHandler<ReviewClaimCommand, Cla
         IOptionClaimRepository claimRepository,
         IOptionRepository optionRepository,
         IListRepository listRepository,
+        IListInviteRepository inviteRepository,
         IUserRepository userRepository,
         INotificationService notificationService,
         ICurrentUserService currentUserService,
@@ -29,6 +32,7 @@ public class ReviewClaimCommandHandler : IRequestHandler<ReviewClaimCommand, Cla
         _claimRepository = claimRepository;
         _optionRepository = optionRepository;
         _listRepository = listRepository;
+        _inviteRepository = inviteRepository;
         _userRepository = userRepository;
         _notificationService = notificationService;
         _currentUserService = currentUserService;
@@ -66,6 +70,16 @@ public class ReviewClaimCommandHandler : IRequestHandler<ReviewClaimCommand, Cla
         var dto = new ClaimDto(claim.Id, claim.UserId, user?.DisplayName ?? string.Empty, claim.Percentage, claim.Status, claim.CreatedAt);
 
         await _notificationService.ClaimReviewedAsync(option.Item.ListId, claim.OptionId, dto, cancellationToken);
+
+        var pendingClaims = await _claimRepository.GetPendingClaimsCountForListAsync(option.Item.ListId, cancellationToken);
+        var pendingInvites = await _inviteRepository.GetPendingInvitesCountAsync(option.Item.ListId, cancellationToken);
+        var countDto = new NotificationCountDto
+        {
+            PendingClaimsCount = pendingClaims,
+            PendingInvitesCount = pendingInvites,
+            TotalNew = pendingClaims + pendingInvites
+        };
+        await _notificationService.NotificationCountChangedAsync(option.Item.ListId, _currentUserService.UserId, countDto, cancellationToken);
 
         return dto;
     }
