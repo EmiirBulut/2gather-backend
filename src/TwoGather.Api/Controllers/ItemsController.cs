@@ -7,6 +7,7 @@ using TwoGather.Application.Features.Items.Commands.MarkItemPurchased;
 using TwoGather.Application.Features.Items.Commands.UpdateItem;
 using TwoGather.Application.Features.Items.Commands.UploadItemImage;
 using TwoGather.Application.Features.Items.DTOs;
+using TwoGather.Application.Features.Items.Queries.GetItemDetail;
 using TwoGather.Application.Features.Items.Queries.GetItemsByList;
 using TwoGather.Domain.Enums;
 
@@ -47,6 +48,13 @@ public class ItemsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(new CreateItemCommand(listId, request.CategoryId, request.Name, request.ImageUrl, request.PlanningNote), cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("api/items/{itemId:guid}")]
+    public async Task<ActionResult<ItemDetailDto>> GetItemDetail(Guid itemId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetItemDetailQuery(itemId), cancellationToken);
         return Ok(result);
     }
 

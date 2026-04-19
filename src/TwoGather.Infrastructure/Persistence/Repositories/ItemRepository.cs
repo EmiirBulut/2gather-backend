@@ -23,6 +23,11 @@ public class ItemRepository : IItemRepository
             .Include(i => i.Options)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
+    public async Task<Item?> GetByIdWithCategoryAsync(Guid id, CancellationToken cancellationToken = default)
+        => await _dbContext.Items.AsNoTracking()
+            .Include(i => i.Category)
+            .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+
     public async Task<IReadOnlyList<(Item item, int optionsCount)>> GetByListIdAsync(Guid listId, ItemStatus? status, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Items.AsNoTracking()
