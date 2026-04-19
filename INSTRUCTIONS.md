@@ -1,652 +1,447 @@
-# 2gather — Backend Development Instructions
+# 2gather — Backend UI Redesign Instructions
 # For use with Claude Code (claude-cli)
-# Place at: backend-repo/INSTRUCTIONS.md
+# Place at: backend-repo/INSTRUCTIONS_UI.md
+# Bu dosya mevcut INSTRUCTIONS.md'ye (Phase 1-11) ek olarak uygulanır.
+# Önce mevcut INSTRUCTIONS.md'yi, ardından bu dosyayı oku.
+# Bu phase'leri INSTRUCTIONS.md'deki Phase 11 tamamlandıktan sonra uygula.
 
 ---
 
-## Project Context
+## Genel Bakış
 
-You are building the backend for "2gather" — a collaborative wedding planning tool.
-Read CLAUDE.md in this repository before writing any code. All architectural decisions, naming
-conventions, and patterns are defined there. Follow them strictly.
+Frontend UI redesign'ında ortaya çıkan yeni veri ihtiyaçları:
 
----
-
-## How to Work
-
-- Work in small, focused steps. Complete one feature fully before starting the next.
-- After generating code, verify it compiles (`dotnet build`) before declaring it done.
-- Run existing tests after each change (`dotnet test`). Do not break passing tests.
-- When adding a new feature, create the files in this order:
-  1. Domain entity (if new)
-  2. EF Core configuration
-  3. Migration
-  4. Repository interface (Application layer)
-  5. Repository implementation (Infrastructure layer)
-  6. Command or Query + DTO
-  7. Handler
-  8. Controller endpoint
-  9. FluentValidation validator
-- Never skip steps. Never put business logic in a controller.
+1. `Item` entity'sine görsel (`imageUrl`) ve planlama notu (`planningNote`) alanları eklenmeli
+2. `GetUserListsQuery` dashboard için ek istatistik döndürmeli (üye sayısı, item ilerlemesi, tamamlanma yüzdesi)
+3. `GetListByIdQuery` proje dashboard için kategori bazlı özet ve bekleyen talepler döndürmeli
+4. Davet yönetimi: bekleyen davetleri listeleme ve iptal etme endpoint'leri eksik
+5. `GetItemsByListQuery` görsel URL'ini döndürmeli
 
 ---
 
-## Phase 1 — Project Scaffold & Auth
+## Phase 12 — Item Görsel ve Planlama Notu
 
-### Step 1.1 — Solution and project setup
-Create a .NET 9 solution with four projects:
-- `TwoGather.Api` (ASP.NET Core Web API)
-- `TwoGather.Application` (Class Library)
-- `TwoGather.Domain` (Class Library)
-- `TwoGather.Infrastructure` (Class Library)
+### Step 12.1 — Domain değişikliği
 
-Add project references following Clean Architecture direction:
-`Api` → `Application` → `Domain`; `Infrastructure` → `Application`.
-
-Install packages:
-- Api: `Microsoft.AspNetCore.Authentication.JwtBearer`, `Swashbuckle.AspNetCore`, `Microsoft.AspNetCore.SignalR`
-- Application: `MediatR`, `FluentValidation`, `FluentValidation.DependencyInjectionExtensions`
-- Infrastructure: `Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.EntityFrameworkCore.Design`, `BCrypt.Net-Next`
-
-### Step 1.2 — Domain entities
-Create in `Domain/Entities/`:
-- `User.cs` — Id (Guid), Email (string), PasswordHash (string), DisplayName (string), CreatedAt (DateTime)
-- `List.cs` — Id (Guid), Name (string), OwnerId (Guid), Owner (User nav), Members (ICollection<ListMember>), Items (ICollection<Item>), CreatedAt (DateTime)
-- `ListMember.cs` — Id (Guid), ListId (Guid), UserId (Guid), Role (MemberRole enum), JoinedAt (DateTime)
-- `Category.cs` — Id (Guid), ListId (Guid, nullable), Name (string), RoomLabel (string), IsSystem (bool)
-- `Item.cs` — Id (Guid), ListId (Guid), CategoryId (Guid), Name (string), Status (ItemStatus enum), PurchasedAt (DateTime, nullable), CreatedAt (DateTime)
-- `ItemOption.cs` — Id (Guid), ItemId (Guid), Title (string), Price (decimal, nullable), Currency (string, nullable), Link (string, nullable), Notes (string, nullable), IsSelected (bool), CreatedAt (DateTime)
-
-Create in `Domain/Enums/`:
-- `MemberRole.cs` — Owner, Editor, Viewer
-- `ItemStatus.cs` — Pending, Purchased
-
-Create in `Domain/Exceptions/`:
-- `NotFoundException.cs` — inherits Exception, takes (string entityName, object key)
-- `ForbiddenException.cs` — inherits Exception
-- `DomainException.cs` — inherits Exception
-
-### Step 1.3 — EF Core setup
-Create `Infrastructure/Persistence/AppDbContext.cs`.
-Create `IEntityTypeConfiguration<T>` files in `Infrastructure/Persistence/Configurations/` for every entity.
-Key configuration rules:
-- All primary keys are Guid, database-generated.
-- Email is unique index on User.
-- ListMember has unique index on (ListId, UserId).
-- ItemOption.Price has precision (18, 2).
-- Cascade delete: deleting a List cascades to ListMember, Item. Deleting an Item cascades to ItemOption.
-
-Run: `dotnet ef migrations add InitialCreate --project Infrastructure --startup-project Api`
-
-### Step 1.4 — Interfaces and services
-Create in `Application/Common/Interfaces/`:
-- `ICurrentUserService.cs` — `Guid UserId { get; }`, `string Email { get; }`
-- `IDateTimeService.cs` — `DateTime UtcNow { get; }`
-- `ITokenService.cs` — `string GenerateAccessToken(User user)`, `string GenerateRefreshToken()`, `ClaimsPrincipal? ValidateToken(string token)`
-- `INotificationService.cs` — methods matching each SignalR event (see CLAUDE.md §10)
-- `IListRepository.cs`, `IItemRepository.cs`, `IOptionRepository.cs`, `ICategoryRepository.cs`, `IUserRepository.cs`
-
-Implement all interfaces in `Infrastructure/Services/` and `Infrastructure/Persistence/Repositories/`.
-Implement `INotificationService` in `Infrastructure/Services/SignalRNotificationService.cs` using `IHubContext<ListHub>`.
-
-### Step 1.5 — Auth feature
-Create `Application/Features/Auth/` with:
-- `RegisterCommand` + `RegisterCommandHandler` + `RegisterRequestDto` / `AuthResponseDto`
-- `LoginCommand` + `LoginCommandHandler` + `LoginRequestDto`
-- `RefreshTokenCommand` + `RefreshTokenCommandHandler`
-
-Store refresh tokens hashed in a `RefreshToken` table (add entity + migration):
-- Id (Guid), UserId (Guid), TokenHash (string), ExpiresAt (DateTime), CreatedAt (DateTime), IsRevoked (bool)
-
-Create `Api/Controllers/AuthController.cs` with:
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-
-### Step 1.6 — MediatR pipeline behaviors
-Create `Application/Common/Behaviors/`:
-- `ValidationBehavior.cs` — runs FluentValidation before handler, throws `ValidationException` on failure
-- `LoggingBehavior.cs` — logs handler name and elapsed time at Information level
-
-Register both in `Program.cs`.
-
-### Step 1.7 — Global error middleware
-Create `Api/Middleware/ExceptionHandlingMiddleware.cs`.
-Map exceptions to HTTP responses:
-- `NotFoundException` → 404
-- `ForbiddenException` → 403
-- `ValidationException` (FluentValidation) → 400 with details array
-- `DomainException` → 422
-- Unhandled → 500
-
-Response format must match CLAUDE.md §8 exactly.
-
-### Step 1.8 — Swagger + CORS + DI wiring
-Configure Swagger with JWT bearer auth support.
-Configure CORS to allow the frontend dev origin (`http://localhost:5173`).
-Register all services, repositories, MediatR, and FluentValidation validators in `Program.cs`.
-
-**Checkpoint**: `dotnet build` passes. `POST /api/auth/register` and `POST /api/auth/login` return tokens. Swagger UI is accessible at `/swagger`.
-
----
-
-## Phase 2 — Lists and Members
-
-### Step 2.1 — List CRUD
-Commands/Queries in `Application/Features/Lists/`:
-- `CreateListCommand` — creates list, automatically adds creator as Owner member
-- `GetUserListsQuery` — returns all lists the current user is a member of
-- `GetListByIdQuery` — returns list detail; throws `ForbiddenException` if caller is not a member
-- `DeleteListCommand` — only Owner can delete
-
-Controller: `Api/Controllers/ListsController.cs`
-- `GET    /api/lists`
-- `POST   /api/lists`
-- `GET    /api/lists/{listId}`
-- `DELETE /api/lists/{listId}`
-
-### Step 2.2 — Invite system
-Add to `Domain/Entities/`: `ListInvite.cs`
-- Id (Guid), ListId (Guid), InvitedEmail (string), Token (string, unique), Role (MemberRole), ExpiresAt (DateTime), AcceptedAt (DateTime, nullable), CreatedAt (DateTime)
-
-Commands in `Application/Features/Members/`:
-- `InviteMemberCommand` — Owner/Editor only; generates GUID token; sends email via `IEmailService` (stub the implementation for now — log to console)
-- `AcceptInviteCommand` — validates token, creates `ListMember`, marks invite accepted
-- `RemoveMemberCommand` — Owner only; cannot remove self
-- `UpdateMemberRoleCommand` — Owner only
-
-Controller: `Api/Controllers/MembersController.cs`
-- `POST   /api/lists/{listId}/members/invite`
-- `DELETE /api/lists/{listId}/members/{userId}`
-- `PATCH  /api/lists/{listId}/members/{userId}/role`
-- `POST   /api/auth/invite/accept` (in AuthController)
-
-### Step 2.3 — Helper: role enforcement
-Create a shared internal helper `ListAuthorizationHelper` used by handlers:
-```csharp
-void RequireRole(ListMember? member, params MemberRole[] allowed);
-// throws ForbiddenException if member is null or role not in allowed
-```
-
-**Checkpoint**: A user can create a list, invite another user by email, the second user accepts the invite and can see the list.
-
----
-
-## Phase 3 — Categories, Items, Options
-
-### Step 3.1 — System categories seed
-On application startup (or via a migration), seed the system categories:
-Salon, Yatak Odası, Mutfak, Banyo, Çocuk Odası, Genel
-
-### Step 3.2 — Categories
-Commands/Queries in `Application/Features/Categories/`:
-- `GetCategoriesQuery` — returns system categories + list-specific custom categories for a given listId
-- `CreateCustomCategoryCommand` — Editor/Owner only; creates a category scoped to the list
-
-Controller: `Api/Controllers/CategoriesController.cs`
-- `GET  /api/categories?listId={listId}`
-- `POST /api/lists/{listId}/categories`
-
-### Step 3.3 — Items
-Commands/Queries in `Application/Features/Items/`:
-- `GetItemsByListQuery` — accepts `?status=pending|purchased|all`, returns items with option count and selected option summary; Editor/Owner/Viewer can read
-- `CreateItemCommand` — Editor/Owner only
-- `UpdateItemCommand` — Editor/Owner only (rename, change category)
-- `MarkItemPurchasedCommand` — Editor/Owner only; sets Status=Purchased, PurchasedAt=UtcNow; calls `INotificationService.ItemPurchasedAsync`
-- `DeleteItemCommand` — Editor/Owner only
-
-After each mutation, call the appropriate `INotificationService` method.
-
-Controller: `Api/Controllers/ItemsController.cs`
-- `GET    /api/lists/{listId}/items`
-- `POST   /api/lists/{listId}/items`
-- `PATCH  /api/items/{itemId}/status`
-- `PUT    /api/items/{itemId}`
-- `DELETE /api/items/{itemId}`
-
-### Step 3.4 — Item Options
-Commands/Queries in `Application/Features/Options/`:
-- `GetOptionsByItemQuery` — Editor/Owner/Viewer can read
-- `CreateOptionCommand` — Editor/Owner only
-- `UpdateOptionCommand` — Editor/Owner only (price, link, notes, title)
-- `SelectOptionCommand` — Editor/Owner only; sets IsSelected=true on this option, IsSelected=false on all others for the same item
-- `DeleteOptionCommand` — Editor/Owner only
-
-After each mutation, call the appropriate `INotificationService` method.
-
-Controller: `Api/Controllers/OptionsController.cs`
-- `GET    /api/items/{itemId}/options`
-- `POST   /api/items/{itemId}/options`
-- `PUT    /api/options/{optionId}`
-- `PATCH  /api/options/{optionId}/select`
-- `DELETE /api/options/{optionId}`
-
-**Checkpoint**: Full CRUD on items and options works. Postman/Swagger tests pass for all endpoints with proper role enforcement.
-
----
-
-## Phase 4 — SignalR Hub
-
-### Step 4.1 — ListHub
-Create `Api/Hubs/ListHub.cs`:
-- Authenticate via JWT (token from query string `access_token`).
-- `JoinList(string listId)` — adds connection to group `list-{listId}` after verifying caller is a member.
-- `LeaveList(string listId)` — removes from group.
-
-### Step 4.2 — Implement INotificationService
-Complete `Infrastructure/Services/SignalRNotificationService.cs`:
-- Inject `IHubContext<ListHub>`.
-- For each event method, call `Clients.Group($"list-{listId}").SendAsync(eventName, payload)`.
-- All methods must be async and accept CancellationToken.
-
-### Step 4.3 — Wire SignalR in Program.cs
-```csharp
-builder.Services.AddSignalR();
-app.MapHub<ListHub>("/hubs/list");
-```
-Configure JWT to read from query string for SignalR connections.
-
-**Checkpoint**: Open two browser tabs, both connected to SignalR. Mark an item purchased in one tab — the other tab receives the `ItemPurchased` event.
-
----
-
-## Phase 5 — Reports
-
-### Step 5.1 — Report queries
-Create `Application/Features/Reports/`:
-- `GetListSummaryQuery` — returns: totalItems, pendingCount, purchasedCount, totalSpent (sum of selected option prices), estimatedTotal (sum of all selected option prices including pending)
-- `GetCategoryBreportQuery` — per category: name, totalItems, pendingCount, purchasedCount, spent
-- `GetSpendingBreakdownQuery` — purchased items with their selected option price, grouped by category
-
-All report queries: any member (Viewer included) can access. Use `.AsNoTracking()` and `.Select()` projections only.
-
-Controller: `Api/Controllers/ReportsController.cs`
-- `GET /api/lists/{listId}/reports/summary`
-- `GET /api/lists/{listId}/reports/by-category`
-- `GET /api/lists/{listId}/reports/spending`
-
-**Checkpoint**: All report endpoints return correct aggregated data.
-
----
-
-## Phase 6 — Tests
-
-### Step 6.1 — Unit tests
-Create `tests/Application.Tests/` project.
-Write unit tests for:
-- `ValidationBehavior` — ensure invalid commands return validation errors
-- `MarkItemPurchasedCommandHandler` — assert status changes, notification called, forbidden for Viewer
-- `InviteMemberCommandHandler` — assert invite created, email service called
-- `AcceptInviteCommandHandler` — assert member added, expired token rejected
-
-Use `xUnit` + `Moq` (or `NSubstitute`).
-
-### Step 6.2 — Integration tests (optional but recommended)
-Create `tests/Api.IntegrationTests/` project.
-Use `WebApplicationFactory<Program>` with an in-memory or test PostgreSQL database.
-Test the full HTTP stack for auth register/login + create list + add item.
-
----
-
-## Phase 7 — Bug Fixes
-
-Bu phase'i yeni özelliklerden önce tamamla. Her adımı bitirdikten sonra `dotnet build` çalıştır.
-
-### Step 7.1 — Silme ve güncelleme düzeltmeleri
-
-`DeleteOptionCommand` ve `UpdateOptionCommand` handler'larında şunları doğrula:
-- `optionId` ile entity fetch ediliyor mu?
-- Fetch sonrası `option.Item.ListId` üzerinden caller'ın list member'ı olduğu kontrol ediliyor mu?
-- Eksikse `IOptionRepository`'ye `GetByIdWithItemAsync(Guid optionId)` metodu ekle, option'ı item navigation property'siyle birlikte getir.
-
-`DeleteItemCommand` ve `UpdateItemCommand` için de aynı kontrolü uygula: handler `itemId` ile item'ı fetch ediyor mu, ardından caller'ın list member'ı olduğunu doğruluyor mu?
-
-### Step 7.2 — Ondalıklı tutar precision
-
-`ItemOptionConfiguration.cs`'de `Price` alanının `HasPrecision(18, 2)` olarak tanımlı olduğunu doğrula. Eksikse düzelt ve migration ekle:
-```
-dotnet ef migrations add FixPricePrecision --project Infrastructure --startup-project Api
-```
-`ItemOptionDto`'da `Price` alanının `decimal?` tipinde olduğunu kontrol et — `double` veya `float` kullanılmışsa `decimal` olarak düzelt.
-
-### Step 7.3 — Options count düzeltmesi
-
-`GetItemsByListQuery` handler'ında `optionsCount` hesaplamasını kontrol et. Aşağıdaki gibi `.Select()` projeksiyonu içinde subquery olarak yazılmış olmalı:
+`Domain/Entities/Item.cs`'e ekle:
 
 ```csharp
-OptionsCount = context.ItemOptions.Count(o => o.ItemId == item.Id)
+public string? ImageUrl { get; set; }
+public string? PlanningNote { get; set; }
 ```
 
-`Include()` ile navigation property yüklenip ardından `.Count` çağrılıyorsa bunu `.Select()` içi subquery'ye çevir — `Include` gereksiz veri çeker ve option'lar yüklenmemişse sıfır döner.
+### Step 12.2 — EF Core konfigürasyonu
 
-### Step 7.4 — Satın alındı butonu düzeltmesi
-
-`MarkItemPurchasedCommand` handler'ında şunları sırayla doğrula:
-- Item `Status` alanı `ItemStatus.Purchased` olarak set ediliyor mu?
-- `PurchasedAt` = `IDateTimeService.UtcNow` olarak set ediliyor mu?
-- `SaveChangesAsync` çağrılıyor mu?
-- Handler sonunda `INotificationService.ItemPurchasedAsync` çağrılıyor mu?
-- `PATCH /api/items/{itemId}/status` route'u controller'da doğru tanımlı mı?
-
-Eksik olan her adımı tamamla.
-
-**Checkpoint**: Swagger üzerinden tüm bug fix senaryolarını test et. Silme, güncelleme, options count ve purchased işlemleri doğru çalışıyor olmalı.
-
----
-
-## Phase 8 — Seçenek Alanı Genişletme (Marka, Model, Renk)
-
-### Step 8.1 — Domain değişikliği
-
-`Domain/Entities/ItemOption.cs`'e üç yeni opsiyonel alan ekle:
-
-```csharp
-public string? Brand { get; set; }
-public string? Model { get; set; }
-public string? Color { get; set; }
-```
-
-### Step 8.2 — EF Core konfigürasyonu
-
-`ItemOptionConfiguration.cs`'de yeni alanlar için:
-- `Brand`: `HasMaxLength(100)`, nullable
-- `Model`: `HasMaxLength(100)`, nullable
-- `Color`: `HasMaxLength(50)`, nullable
+`ItemConfiguration.cs`'de yeni alanlar için:
+- `ImageUrl`: `HasMaxLength(2000)`, nullable
+- `PlanningNote`: `HasMaxLength(1000)`, nullable
 
 Migration:
 ```
-dotnet ef migrations add AddBrandModelColorToItemOption --project Infrastructure --startup-project Api
+dotnet ef migrations add AddImageUrlAndPlanningNoteToItem --project Infrastructure --startup-project Api
 ```
 
-### Step 8.3 — DTO ve Command güncellemeleri
+### Step 12.3 — DTO güncellemeleri
 
-`ItemOptionDto`'ya `Brand?`, `Model?`, `Color?` ekle.
+`ItemDto`'ya ekle:
+```csharp
+public string? ImageUrl { get; set; }
+public string? PlanningNote { get; set; }
+```
 
-`CreateOptionCommand` ve `UpdateOptionCommand`'a aynı alanları ekle.
+`CreateItemCommand`'a ekle:
+```csharp
+public string? ImageUrl { get; set; }
+public string? PlanningNote { get; set; }
+```
 
-`CreateOptionCommandValidator` ve `UpdateOptionCommandValidator`'a ekle:
-- `Brand`: opsiyonel, max 100 karakter
-- `Model`: opsiyonel, max 100 karakter
-- `Color`: opsiyonel, max 50 karakter
+`UpdateItemCommand`'a ekle:
+```csharp
+public string? ImageUrl { get; set; }
+public string? PlanningNote { get; set; }
+```
 
-`CreateOptionCommandHandler` ve `UpdateOptionCommandHandler`'da yeni alanların entity'ye map edildiğini doğrula.
+`CreateItemCommandValidator`'a ekle:
+- `ImageUrl`: opsiyonel, geçerli URL formatı, max 2000 karakter
+- `PlanningNote`: opsiyonel, max 1000 karakter
 
-**Checkpoint**: `POST /api/items/{itemId}/options` body'sine `brand`, `model`, `color` eklenebiliyor ve `GET /api/items/{itemId}/options` yanıtında bu alanlar dönüyor olmalı.
+`UpdateItemCommandValidator`'a aynı kuralları ekle.
+
+Handler'larda yeni alanların entity'ye map edildiğini doğrula.
+
+### Step 12.4 — Görsel yükleme altyapısı
+
+Frontend'de görsel seçildiğinde backend'e URL değil, base64 veya multipart form data gelecek. Bu aşamada **URL kabul eden basit yaklaşım** yeterli — frontend şimdilik harici URL girebiliyor.
+
+İleride görsel yükleme eklenecekse `IFileStorageService` interface'i Application katmanına ekle (şimdilik stub):
+
+```csharp
+// Application/Common/Interfaces/IFileStorageService.cs
+public interface IFileStorageService
+{
+    Task<string> UploadImageAsync(Stream imageStream, string fileName, CancellationToken ct);
+}
+```
+
+Şimdilik infrastructure implementasyonu: konsola log at, URL'i olduğu gibi kaydet. Gerçek blob storage Phase 12.5'te gelecek.
+
+### Step 12.5 — Görsel yükleme endpoint'i (opsiyonel, ilerisi için)
+
+`Api/Controllers/ItemsController.cs`'e ekle:
+```
+POST /api/items/{itemId}/image
+```
+- `[Consumes("multipart/form-data")]`
+- Max 5MB, sadece `image/jpeg` ve `image/png`
+- `IFileStorageService.UploadImageAsync` çağır
+- Dönen URL'i `Item.ImageUrl`'e kaydet
+- Şimdilik `IFileStorageService` implementasyonu konsola log atar ve statik URL döner
+
+`INotificationService`'e `ItemImageUpdatedAsync` ekle.
+
+**Checkpoint**: `POST /api/lists/{listId}/items` body'sine `imageUrl` ve `planningNote` eklenebiliyor. `GET /api/lists/{listId}/items` yanıtında bu alanlar dönüyor. `PUT /api/items/{itemId}` ile güncellenebiliyor.
 
 ---
 
-## Phase 9 — Rating Sistemi
+## Phase 13 — Dashboard için List Summary DTO Genişletme
 
-### Step 9.1 — Domain entity
+### Step 13.1 — GetUserListsQuery DTO güncelleme
 
-`Domain/Entities/OptionRating.cs` oluştur:
+Mevcut `GetUserListsQuery` muhtemelen sadece liste adı ve ID döndürüyor. Frontend dashboard (Image 2) şunlara ihtiyaç duyuyor:
 
 ```csharp
-public Guid Id { get; set; }
-public Guid OptionId { get; set; }
-public ItemOption Option { get; set; } = null!;
-public Guid UserId { get; set; }
-public User User { get; set; } = null!;
-public int Score { get; set; }           // 1-5 arası
-public DateTime CreatedAt { get; set; }
-public DateTime? UpdatedAt { get; set; }
+public class ListSummaryDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public MemberRole CurrentUserRole { get; set; }
+    public int MemberCount { get; set; }
+    public int TotalItemCount { get; set; }
+    public int PurchasedItemCount { get; set; }
+    public int PendingItemCount { get; set; }
+    public decimal CompletionPercentage { get; set; }  // PurchasedItemCount / TotalItemCount * 100
+    public List<MemberAvatarDto> Members { get; set; } = new();  // avatar stack için
+    public DateTime CreatedAt { get; set; }
+}
+
+public class MemberAvatarDto
+{
+    public Guid UserId { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string Initials { get; set; } = string.Empty;  // DisplayName'den üret
+}
 ```
 
-`ItemOption` entity'sine navigation ekle:
+`GetUserListsQuery` handler'ını güncelle: tüm verileri tek `.Select()` projeksiyonunda hesapla — ayrı ayrı sorgu açma.
+
 ```csharp
-public ICollection<OptionRating> Ratings { get; set; } = new List<OptionRating>();
+// Handler içinde örnek projeksiyon:
+.Select(list => new ListSummaryDto
+{
+    Id = list.Id,
+    Name = list.Name,
+    CurrentUserRole = list.Members
+        .First(m => m.UserId == currentUserId).Role,
+    MemberCount = list.Members.Count(),
+    TotalItemCount = list.Items.Count(),
+    PurchasedItemCount = list.Items.Count(i => i.Status == ItemStatus.Purchased),
+    PendingItemCount = list.Items.Count(i => i.Status == ItemStatus.Pending),
+    CompletionPercentage = list.Items.Any()
+        ? Math.Round((decimal)list.Items.Count(i => i.Status == ItemStatus.Purchased)
+            / list.Items.Count() * 100, 1)
+        : 0,
+    Members = list.Members
+        .Take(3)  // avatar stack için max 3, +N göstergesi frontend'de hesaplanır
+        .Select(m => new MemberAvatarDto
+        {
+            UserId = m.UserId,
+            DisplayName = m.User.DisplayName,
+            Initials = m.User.DisplayName.Length >= 2
+                ? m.User.DisplayName.Substring(0, 2).ToUpper()
+                : m.User.DisplayName.ToUpper()
+        }).ToList(),
+    CreatedAt = list.CreatedAt
+})
 ```
 
-### Step 9.2 — EF Core konfigürasyonu
+### Step 13.2 — GetListByIdQuery DTO güncelleme
 
-`Infrastructure/Persistence/Configurations/OptionRatingConfiguration.cs` oluştur:
-- Primary key: `Id`
-- Unique index: `(OptionId, UserId)` — bir kullanıcı bir seçeneğe yalnızca bir rating verebilir
-- `Score` check constraint: `Score >= 1 AND Score <= 5`
-- Cascade delete: `ItemOption` silinince `OptionRating`'ler silinir
+Frontend proje dashboard'u (Image 3) şunları tek API çağrısında istiyor:
+- Finansal özet (toplam hedef, harcanan)
+- Bekleyen talepler (pending claims) — sadece dashboard'da gösterim için kısa özet
+- Kategori bazlı ilerleme kartları
 
-Migration:
-```
-dotnet ef migrations add AddOptionRating --project Infrastructure --startup-project Api
-```
+Mevcut `GetListByIdQuery` response DTO'sunu genişlet:
 
-### Step 9.3 — Repository interface
-
-`Application/Common/Interfaces/IOptionRatingRepository.cs`:
 ```csharp
-Task<OptionRating?> GetByOptionAndUserAsync(Guid optionId, Guid userId, CancellationToken ct);
-Task AddAsync(OptionRating rating, CancellationToken ct);
-Task SaveChangesAsync(CancellationToken ct);
+public class ListDetailDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public MemberRole CurrentUserRole { get; set; }
+    public decimal CompletionPercentage { get; set; }
+
+    // Finansal özet
+    public FinancialSummaryDto Financial { get; set; } = new();
+
+    // Bekleyen talepler (dashboard widget için)
+    public List<PendingClaimSummaryDto> PendingClaims { get; set; } = new();
+
+    // Kategori bazlı özet kartları
+    public List<CategorySummaryDto> CategorySummaries { get; set; } = new();
+
+    public int MemberCount { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class FinancialSummaryDto
+{
+    public decimal TotalEstimated { get; set; }   // tüm seçili option fiyatlarının toplamı
+    public decimal TotalSpent { get; set; }        // satın alınan item'ların seçili option fiyatı
+    public decimal RemainingBudget { get; set; }   // TotalEstimated - TotalSpent
+}
+
+public class PendingClaimSummaryDto
+{
+    public Guid ClaimId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string OptionTitle { get; set; } = string.Empty;
+    public string ClaimantDisplayName { get; set; } = string.Empty;
+    public int Percentage { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class CategorySummaryDto
+{
+    public Guid CategoryId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string RoomLabel { get; set; } = string.Empty;
+    public int TotalItems { get; set; }
+    public int PurchasedItems { get; set; }
+    public decimal CompletionPercentage { get; set; }
+    public string Description { get; set; } = string.Empty;  // frontend'de gösterilecek açıklama
+    public List<MemberAvatarDto> AssignedMembers { get; set; } = new();  // o kategoride item'ı olan üyeler
+}
 ```
 
-### Step 9.4 — Command ve Query
+Handler güncelleme: tüm hesaplamalar tek sorguda `.Select()` ile yapılmalı. `PendingClaims` için sadece `Status=Pending` olan claim'leri, `OptionClaim` → `ItemOption` → `Item` join'iyle getir. Max 5 pending claim döndür (dashboard widget için yeterli).
 
-`Application/Features/Ratings/` klasörü oluştur:
+`AssignedMembers` hesabı: kategori altındaki item'ları purchase eden ya da claim'i olan üyelerin distinct listesi, max 3 avatar döner.
 
-**`RateOptionCommand`** — `OptionId`, `Score` (1-5):
-- Caller list üyesi olmalı — Viewer dahil herkes rating verebilir
-- Seçenek mevcut olmalı, yoksa `NotFoundException`
-- Aynı kullanıcı aynı seçeneği daha önce ratinglemişse güncelle (upsert), yoksa yeni kayıt ekle
-- SignalR: `OptionRatingUpdated` eventi broadcast et: `{ listId, optionId, averageRating, totalRatings, currentUserScore }`
-
-**`GetOptionRatingsQuery`** — `OptionId`:
-- Tüm üyeler okuyabilir
-- Dönen DTO: `averageRating (decimal)`, `totalRatings (int)`, `currentUserScore (int?)` — giriş yapan kullanıcının skoru
-
-### Step 9.5 — DTO güncellemesi
-
-`ItemOptionDto`'ya ekle:
-```csharp
-public decimal? AverageRating { get; set; }
-public int TotalRatings { get; set; }
-public int? CurrentUserScore { get; set; }
-```
-
-`GetOptionsByItemQuery` handler'ını güncelle: her option için rating özetini tek `.Select()` projeksiyonu içinde hesapla, ayrı sorgu açma.
-
-### Step 9.6 — Controller
-
-`Api/Controllers/RatingsController.cs` oluştur:
-- `POST /api/options/{optionId}/ratings` — RateOptionCommand
-- `GET  /api/options/{optionId}/ratings` — GetOptionRatingsQuery
-
-`INotificationService`'e `OptionRatingUpdatedAsync(Guid listId, Guid optionId, CancellationToken ct)` ekle ve `SignalRNotificationService`'de implement et.
-
-**Checkpoint**: Bir seçeneğe rating ver. Farklı bir kullanıcıyla aynı seçeneğe farklı rating ver. `GET /api/options/{optionId}/ratings` doğru ortalama ve `currentUserScore` dönüyor olmalı. Aynı kullanıcı rating'ini güncelleyebiliyor olmalı.
+**Checkpoint**: `GET /api/lists/{listId}` tek çağrıda finansal özet, bekleyen talepler ve kategori kartları döndürüyor. `GET /api/lists` dashboard için gereken tüm liste istatistiklerini döndürüyor.
 
 ---
 
-## Phase 10 — Nihai Karar Sistemi
+## Phase 14 — Davet Yönetimi Endpoint'leri
 
-### Step 10.1 — Domain değişikliği
+### Step 14.1 — GetPendingInvitesQuery
 
-`Domain/Entities/ItemOption.cs`'e ekle:
+`Application/Features/Members/GetPendingInvitesQuery.cs` — `ListId`:
+- Sadece Owner çağırabilir
+- `AcceptedAt=null` ve `ExpiresAt > UtcNow` olan davetleri döndür
+- Süresi geçmiş davetleri de ayrı filtreyle döndür (frontend'de "süresi dolmuş" göstergesi için)
 
 ```csharp
-public bool IsFinal { get; set; }
-public DateTime? FinalizedAt { get; set; }
-public Guid? FinalizedBy { get; set; }
+public class PendingInviteDto
+{
+    public Guid InviteId { get; set; }
+    public string InvitedEmail { get; set; } = string.Empty;
+    public MemberRole Role { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public bool IsExpired { get; set; }  // ExpiresAt < UtcNow
+}
 ```
 
-Migration:
-```
-dotnet ef migrations add AddFinalDecisionToItemOption --project Infrastructure --startup-project Api
-```
+### Step 14.2 — CancelInviteCommand
 
-### Step 10.2 — SetFinalOptionCommand
+`Application/Features/Members/CancelInviteCommand.cs` — `InviteId`:
+- Sadece Owner çağırabilir
+- Davet bu listeye ait olmalı, değilse `NotFoundException`
+- Davet zaten kabul edilmişse `DomainException`: "Kabul edilmiş davet iptal edilemez"
+- Kaydı hard delete et — soft delete yok
 
-`Application/Features/Options/SetFinalOptionCommand.cs`:
-- Sadece `Owner` çalıştırabilir, değilse `ForbiddenException`
-- Hedef seçenek bu item'a ait olmalı, değilse `NotFoundException`
-- Aynı item'ın başka bir seçeneğinde `IsFinal=true` varsa önce onu temizle: `IsFinal=false`, `FinalizedAt=null`, `FinalizedBy=null`
-- Hedef seçeneği set et: `IsFinal=true`, `FinalizedAt=UtcNow`, `FinalizedBy=currentUserId`
-- SignalR: `OptionFinalized` eventi broadcast et: `{ listId, itemId, finalOptionId }`
+### Step 14.3 — ResendInviteCommand
 
-### Step 10.3 — RemoveFinalDecisionCommand
+`Application/Features/Members/ResendInviteCommand.cs` — `InviteId`:
+- Sadece Owner çağırabilir
+- Mevcut daveti bulur, `ExpiresAt`'ı `UtcNow + 7 gün` olarak günceller
+- `IEmailService.SendInviteAsync` tekrar çağır (stub)
 
-`Application/Features/Options/RemoveFinalDecisionCommand.cs`:
-- Sadece `Owner` çalıştırabilir
-- Hedef seçeneğin `IsFinal=true` olması gerekir, değilse `DomainException`
-- `IsFinal=false`, `FinalizedAt=null`, `FinalizedBy=null` yap
-- SignalR: `OptionFinalRemoved` eventi broadcast et: `{ listId, itemId, optionId }`
+### Step 14.4 — Controller güncellemesi
 
-### Step 10.4 — Mevcut command'lara kural ekleme
+`Api/Controllers/MembersController.cs`'e ekle:
+- `GET    /api/lists/{listId}/members/invites` — GetPendingInvitesQuery
+- `DELETE /api/lists/{listId}/members/invites/{inviteId}` — CancelInviteCommand
+- `POST   /api/lists/{listId}/members/invites/{inviteId}/resend` — ResendInviteCommand
 
-`UpdateOptionCommand` handler'ında: seçenek `IsFinal=true` ve caller `Owner` değilse `ForbiddenException`.
-
-`DeleteOptionCommand` handler'ında: seçenek `IsFinal=true` ise `DomainException` — "Nihai kararı verilmiş seçenek silinemez. Önce nihai kararı kaldırın."
-
-### Step 10.5 — DTO ve Controller güncellemeleri
-
-`ItemOptionDto`'ya ekle:
-```csharp
-public bool IsFinal { get; set; }
-public DateTime? FinalizedAt { get; set; }
-```
-
-`OptionsController.cs`'e ekle:
-- `PATCH  /api/options/{optionId}/finalize` — SetFinalOptionCommand
-- `DELETE /api/options/{optionId}/finalize` — RemoveFinalDecisionCommand
-
-`INotificationService`'e `OptionFinalizedAsync` ve `OptionFinalRemovedAsync` ekle, `SignalRNotificationService`'de implement et.
-
-**Checkpoint**: Owner bir seçeneği nihai yapabilir. Aynı item'da başka seçenek nihai yapılınca önceki otomatik temizlenir. Editor bu endpoint'i çağırırsa 403 alır. Nihai seçeneği Editor güncellemeye çalışırsa 403 alır. Nihai seçenek silinemez.
+**Checkpoint**: Owner bekleyen davetleri görebiliyor, iptal edebiliyor, yeniden gönderebiliyor. Image 8'deki "Bekleyen Davetler" listesi ve `✕` butonu bu endpoint'lerle çalışıyor.
 
 ---
 
-## Phase 11 — Talip Olma Sistemi
+## Phase 15 — Raporlar Endpoint Genişletme
 
-### Step 11.1 — Domain entity
+Frontend raporlar sayfası (Image 7) mevcut endpoint'lerden fazlasını istiyor.
 
-`Domain/Entities/OptionClaim.cs` oluştur:
+### Step 15.1 — GetListSummaryQuery güncelleme
+
+Mevcut `GetListSummaryQuery` dönen DTO'ya ekle:
 
 ```csharp
-public Guid Id { get; set; }
-public Guid OptionId { get; set; }
-public ItemOption Option { get; set; } = null!;
-public Guid UserId { get; set; }
-public User User { get; set; } = null!;
-public int Percentage { get; set; }           // 25 / 50 / 75 / 100
-public ClaimStatus Status { get; set; }       // Pending / Approved / Rejected
-public DateTime CreatedAt { get; set; }
-public DateTime? ReviewedAt { get; set; }
-public Guid? ReviewedBy { get; set; }
+public class ListSummaryReportDto
+{
+    // mevcut alanlar...
+    public decimal BudgetUsagePercentage { get; set; }  // TotalSpent / TotalEstimated * 100
+    public decimal RemainingBudget { get; set; }
+
+    // yeni — raporlar sayfasındaki "Hazırlık Durumu" kartı için
+    public decimal ReadinessPercentage { get; set; }    // purchased / total * 100
+    public string ReadinessLabel { get; set; } = string.Empty;
+    // "Tamamlandı" / "İyi Gidiyor" / "Devam Ediyor" / "Yeni Başladı"
+    // 80%+ → Tamamlandı, 50-79% → İyi Gidiyor, 20-49% → Devam Ediyor, 0-19% → Yeni Başladı
+}
 ```
 
-`Domain/Enums/ClaimStatus.cs`:
-```csharp
-public enum ClaimStatus { Pending, Approved, Rejected }
-```
+### Step 15.2 — GetItemsForReportQuery
 
-`ItemOption` entity'sine navigation ekle:
-```csharp
-public ICollection<OptionClaim> Claims { get; set; } = new List<OptionClaim>();
-```
+Raporlar sayfasındaki "İtem Listesi & Durum" tablosu için düz liste. Mevcut `GetItemsByListQuery`'den farklı — bu sıralı, tüm kategorileri tek listede ve görsel URL'i de içeriyor.
 
-### Step 11.2 — EF Core konfigürasyonu
-
-`Infrastructure/Persistence/Configurations/OptionClaimConfiguration.cs`:
-- Primary key: `Id`
-- `Percentage` check constraint: değer 25, 50, 75 veya 100 olmalı
-- Index: `(OptionId, UserId)` — unique değil, sorgu performansı için
-- Cascade delete: `ItemOption` silinince `OptionClaim`'ler silinir
-
-Migration:
-```
-dotnet ef migrations add AddOptionClaim --project Infrastructure --startup-project Api
-```
-
-### Step 11.3 — Repository interface
-
-`Application/Common/Interfaces/IOptionClaimRepository.cs`:
-```csharp
-Task<OptionClaim?> GetByIdAsync(Guid id, CancellationToken ct);
-Task<List<OptionClaim>> GetByOptionIdAsync(Guid optionId, CancellationToken ct);
-Task<int> GetApprovedPercentageTotalAsync(Guid optionId, CancellationToken ct);
-Task AddAsync(OptionClaim claim, CancellationToken ct);
-Task SaveChangesAsync(CancellationToken ct);
-```
-
-### Step 11.4 — CreateClaimCommand
-
-`Application/Features/Claims/CreateClaimCommand.cs` — `OptionId`, `Percentage`:
-
-İş kuralları sırasıyla:
-1. Caller list üyesi olmalı; `Viewer` rolü `ForbiddenException` alır
-2. Hedef seçenek `IsFinal=true` olmalı — değilse `DomainException`: "Yalnızca nihai kararı verilmiş seçeneklere talip olunabilir"
-3. Item `Status=Purchased` ise `DomainException`: "Satın alınan ürüne yeni talip eklenemez"
-4. `approvedTotal = GetApprovedPercentageTotalAsync(optionId)` hesapla
-5. `approvedTotal + Percentage > 100` ise `DomainException`: "Talep edilen yüzde kapasiteyi aşıyor. Kalan: {100 - approvedTotal}%"
-6. `OptionClaim` oluştur, `Status=Pending`
-7. SignalR: `ClaimCreated` eventi broadcast et: `{ listId, optionId, claim: ClaimDto }`
-8. Owner'a özel bildirim: `INotificationService.ClaimPendingNotificationAsync` çağır
-
-### Step 11.5 — ReviewClaimCommand
-
-`Application/Features/Claims/ReviewClaimCommand.cs` — `ClaimId`, `Decision` (Approved/Rejected):
-
-İş kuralları:
-1. Sadece `Owner` çalıştırabilir
-2. Claim `Status=Pending` olmalı — değilse `DomainException`
-3. `Decision=Approved` ise: `approvedTotal`'ı yeniden hesapla (race condition koruması), `approvedTotal + claim.Percentage > 100` ise `DomainException`
-4. `Status`, `ReviewedAt`, `ReviewedBy` güncelle
-5. SignalR: `ClaimApproved` veya `ClaimRejected` eventi broadcast et: `{ listId, optionId, claim: ClaimDto }`
-
-### Step 11.6 — GetClaimsByOptionQuery
-
-`Application/Features/Claims/GetClaimsByOptionQuery.cs` — `OptionId`:
+`Application/Features/Reports/GetItemsForReportQuery.cs`:
 - Tüm list üyeleri okuyabilir
-- Dönen: `ClaimDto[]` — her claim için `id`, `userId`, `displayName`, `percentage`, `status`, `createdAt`
+- Dönen: item başına `imageUrl`, `name`, `selectedOptionTitle` (seçili option varsa), `categoryName`, `estimatedPrice` (seçili option fiyatı), `status`
+- Sıralama: önce Purchased, sonra Pending; her grup içinde category'ye göre alfabetik
 
-### Step 11.7 — MarkItemPurchasedCommand güncellemesi
-
-Mevcut `MarkItemPurchasedCommand` handler'ında yetki kontrolünü aşağıdaki mantıkla güncelle:
-
-```
-1. Item'ın final seçeneğini bul (IsFinal=true olan option)
-2. Final seçeneğin Approved claim'leri var mı kontrol et
-3. Var ise: caller bu claim'lerden birinin UserId'si mi? Değilse ForbiddenException
-4. Yok ise: caller Owner mı? Değilse ForbiddenException
-5. Kontrolü geçtiyse item'ı Purchased olarak işaretle
-```
-
-### Step 11.8 — DTO ve Controller güncellemeleri
-
-`ClaimDto.cs` oluştur:
 ```csharp
-public Guid Id { get; set; }
-public Guid UserId { get; set; }
-public string DisplayName { get; set; } = string.Empty;
-public int Percentage { get; set; }
-public ClaimStatus Status { get; set; }
-public DateTime CreatedAt { get; set; }
+public class ReportItemDto
+{
+    public Guid Id { get; set; }
+    public string? ImageUrl { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? SelectedOptionTitle { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public decimal? EstimatedPrice { get; set; }
+    public string? Currency { get; set; }
+    public ItemStatus Status { get; set; }
+}
 ```
 
-`ItemOptionDto`'ya ekle:
+Controller: `Api/Controllers/ReportsController.cs`'e ekle:
+- `GET /api/lists/{listId}/reports/items` — GetItemsForReportQuery
+
+### Step 15.3 — GetCategoryReportQuery güncelleme
+
+Mevcut `GetCategoryBreportQuery` DTO'suna ekle:
+
 ```csharp
-public int ApprovedClaimsTotal { get; set; }
-public int RemainingClaimPercentage { get; set; }
-public List<ClaimDto> Claims { get; set; } = new();
+public class CategoryReportDto
+{
+    // mevcut alanlar...
+    public decimal CompletionPercentage { get; set; }  // SegmentedProgressBar için
+    // "X/Y İTEM ALINDI" gösterimi frontend'de hesaplanır ama backend doğru veri döndürmeli
+}
 ```
 
-`GetOptionsByItemQuery` handler'ını güncelle: her option için claim özetini tek `.Select()` içinde hesapla.
+**Checkpoint**: `GET /api/lists/{listId}/reports/summary` `budgetUsagePercentage` ve `readinessPercentage` döndürüyor. `GET /api/lists/{listId}/reports/items` endpoint'i çalışıyor, görsel URL dahil.
 
-`Api/Controllers/ClaimsController.cs` oluştur:
-- `POST  /api/options/{optionId}/claims` — CreateClaimCommand
-- `GET   /api/options/{optionId}/claims` — GetClaimsByOptionQuery
-- `PATCH /api/claims/{claimId}/review` — ReviewClaimCommand
+---
 
-`INotificationService`'e ekle ve `SignalRNotificationService`'de implement et:
-- `ClaimCreatedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken ct)`
-- `ClaimReviewedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken ct)`
-- `ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken ct)`
+## Phase 16 — Item Detail Sayfası için Ek Endpoint'ler
 
-**Checkpoint**:
-- Nihai kararı verilmemiş seçeneğe talip olmaya çalışınca 422 alınır
-- Nihai seçeneğe Editor talip olabilir, Pending durumunda görünür
-- Owner claim'i onaylar, `approvedTotal` güncellenir, kalan yüzde düşer
-- Toplam %100 dolan seçeneğe yeni talip eklenince 422 alınır
-- Onaylı talibi olan kullanıcı ürünü satın alındı işaretleyebilir; hiç talip yoksa Owner işaretler
+Mevcut `GET /api/items/{itemId}/options` item detay sayfası (Image 5) için yeterliydi ama tam sayfa olunca bazı ek veriler gerekiyor.
+
+### Step 16.1 — GetItemDetailQuery
+
+`Application/Features/Items/GetItemDetailQuery.cs` — `ItemId`:
+
+Mevcut `GetItemsByListQuery` item listesini döndürüyor; tek item detayı için ayrı query ekle:
+
+```csharp
+public class ItemDetailDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
+    public string? PlanningNote { get; set; }
+    public ItemStatus Status { get; set; }
+    public DateTime? PurchasedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    // Kategori bilgisi
+    public Guid CategoryId { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public string RoomLabel { get; set; } = string.Empty;
+
+    // Atanan üye (şimdilik Owner — ilerisi için)
+    public MemberAvatarDto AssignedTo { get; set; } = new();
+
+    // Seçenekler (mevcut GetOptionsByItemQuery ile aynı veri ama tek çağrıda)
+    public List<ItemOptionDetailDto> Options { get; set; } = new();
+}
+```
+
+`ItemOptionDetailDto` mevcut `ItemOptionDto`'yu kapsar + rating ve claim özetlerini içerir (Phase 9 ve 11'de eklenenleri dahil et).
+
+Controller: `Api/Controllers/ItemsController.cs`'e ekle:
+- `GET /api/items/{itemId}` — GetItemDetailQuery
+
+### Step 16.2 — UpdatedAt alanı
+
+`Item` entity'sine `UpdatedAt` alanı ekle:
+
+```csharp
+public DateTime UpdatedAt { get; set; }
+```
+
+`ItemConfiguration.cs`'de: nullable değil, default `DateTime.UtcNow`.
+
+Her `UpdateItemCommand`, `MarkItemPurchasedCommand` handler'ında `item.UpdatedAt = _dateTimeService.UtcNow` set et.
+
+Migration:
+```
+dotnet ef migrations add AddUpdatedAtToItem --project Infrastructure --startup-project Api
+```
+
+"Son Güncelleme: 2 saat önce" gösterimi için frontend `UpdatedAt`'ı kullanır; backend sadece UTC datetime döner.
+
+**Checkpoint**: `GET /api/items/{itemId}` tek çağrıda item detayını, seçeneklerini, rating'lerini ve claim'lerini döndürüyor. Image 5'teki sağ panel verileri (durum, son güncelleme, atanan) bu endpoint'ten geliyor.
+
+---
+
+## Phase 17 — Bildirim Sistemi Genişletme
+
+Image 3'te "Bekleyen Talepler" widget'ı ve "3 Yeni" badge görünüyor. Bu badge için frontend'in anlık bildirim sayısına ihtiyacı var.
+
+### Step 17.1 — GetNotificationCountQuery
+
+`Application/Features/Notifications/GetNotificationCountQuery.cs` — `ListId`:
+- Sadece Owner okuyabilir
+- Döner:
+```csharp
+public class NotificationCountDto
+{
+    public int PendingClaimsCount { get; set; }
+    public int PendingInvitesCount { get; set; }
+    public int TotalNew { get; set; }  // PendingClaimsCount + PendingInvitesCount
+}
+```
+
+Controller: `Api/Controllers/ListsController.cs`'e ekle:
+- `GET /api/lists/{listId}/notifications/count` — GetNotificationCountQuery
+
+### Step 17.2 — SignalR bildirim sayısı güncellemesi
+
+`INotificationService`'e ekle:
+```csharp
+Task NotificationCountChangedAsync(Guid listId, Guid ownerUserId, NotificationCountDto count, CancellationToken ct);
+```
+
+`ClaimCreatedAsync` sonrasında ve `ReviewClaimCommand` sonrasında `NotificationCountChangedAsync` çağır — böylece Owner'ın ekranındaki "3 Yeni" badge'i anlık güncellenir.
+
+`SignalRNotificationService`'de `NotificationCountChangedAsync` implementasyonu: claim oluşturulunca tüm gruba değil sadece Owner'a gönder. Hub'da `Clients.User(ownerUserId.ToString()).SendAsync(...)` kullan — tüm grup değil.
+
+**Checkpoint**: Owner listeye girdiğinde bildirim sayısını çekebiliyor. Yeni claim geldiğinde Owner'ın badge'i SignalR ile anlık güncelleniyor.
 
 ---
 
