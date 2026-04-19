@@ -22,7 +22,7 @@ public class ListsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<ListDto>>> GetUserLists(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<ListSummaryDto>>> GetUserLists(CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(new GetUserListsQuery(), cancellationToken);
         return Ok(result);
