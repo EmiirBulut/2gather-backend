@@ -4,7 +4,7 @@ using TwoGather.Application.Features.Lists.DTOs;
 
 namespace TwoGather.Application.Features.Lists.Queries.GetUserLists;
 
-public class GetUserListsQueryHandler : IRequestHandler<GetUserListsQuery, IReadOnlyList<ListDto>>
+public class GetUserListsQueryHandler : IRequestHandler<GetUserListsQuery, IReadOnlyList<ListSummaryDto>>
 {
     private readonly IListRepository _listRepository;
     private readonly ICurrentUserService _currentUserService;
@@ -15,16 +15,8 @@ public class GetUserListsQueryHandler : IRequestHandler<GetUserListsQuery, IRead
         _currentUserService = currentUserService;
     }
 
-    public async Task<IReadOnlyList<ListDto>> Handle(GetUserListsQuery request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ListSummaryDto>> Handle(GetUserListsQuery request, CancellationToken cancellationToken)
     {
-        var lists = await _listRepository.GetByUserIdAsync(_currentUserService.UserId, cancellationToken);
-
-        return lists.Select(l => new ListDto(
-            l.Id,
-            l.Name,
-            l.OwnerId,
-            l.CreatedAt,
-            l.Members.Count
-        )).ToList();
+        return await _listRepository.GetUserListsSummaryAsync(_currentUserService.UserId, cancellationToken);
     }
 }

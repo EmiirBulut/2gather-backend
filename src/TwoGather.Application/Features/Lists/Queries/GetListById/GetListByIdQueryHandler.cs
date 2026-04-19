@@ -2,7 +2,6 @@ using MediatR;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Lists.DTOs;
-using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
 
@@ -21,20 +20,12 @@ public class GetListByIdQueryHandler : IRequestHandler<GetListByIdQuery, ListDet
 
     public async Task<ListDetailDto> Handle(GetListByIdQuery request, CancellationToken cancellationToken)
     {
-        var list = await _listRepository.GetByIdWithMembersAndUsersAsync(request.ListId, cancellationToken)
+        var member = await _listRepository.GetMemberAsync(request.ListId, _currentUserService.UserId, cancellationToken);
+        ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor, MemberRole.Viewer);
+
+        var detail = await _listRepository.GetListDetailAsync(request.ListId, _currentUserService.UserId, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.List), request.ListId);
 
-        var callerMember = list.Members.FirstOrDefault(m => m.UserId == _currentUserService.UserId);
-        ListAuthorizationHelper.RequireRole(callerMember, MemberRole.Owner, MemberRole.Editor, MemberRole.Viewer);
-
-        var members = list.Members.Select(m => new MemberDto(
-            m.UserId,
-            m.User?.DisplayName ?? string.Empty,
-            m.User?.Email ?? string.Empty,
-            m.Role,
-            m.JoinedAt
-        )).ToList();
-
-        return new ListDetailDto(list.Id, list.Name, list.OwnerId, list.CreatedAt, members);
+        return detail;
     }
 }
