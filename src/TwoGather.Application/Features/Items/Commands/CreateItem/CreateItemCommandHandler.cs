@@ -38,6 +38,7 @@ public class CreateItemCommandHandler : IRequestHandler<CreateItemCommand, ItemD
         var member = await _listRepository.GetMemberAsync(request.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
 
+        var now = _dateTimeService.UtcNow;
         var item = new Item
         {
             Id = Guid.NewGuid(),
@@ -45,13 +46,16 @@ public class CreateItemCommandHandler : IRequestHandler<CreateItemCommand, ItemD
             CategoryId = request.CategoryId,
             Name = request.Name,
             Status = ItemStatus.Pending,
-            CreatedAt = _dateTimeService.UtcNow
+            ImageUrl = request.ImageUrl,
+            PlanningNote = request.PlanningNote,
+            CreatedAt = now,
+            UpdatedAt = now
         };
 
         await _itemRepository.AddAsync(item, cancellationToken);
         await _itemRepository.SaveChangesAsync(cancellationToken);
 
-        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.CreatedAt, 0);
+        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.ImageUrl, item.PlanningNote, item.CreatedAt, item.UpdatedAt, 0);
 
         await _notificationService.ItemAddedAsync(request.ListId, dto, cancellationToken);
 

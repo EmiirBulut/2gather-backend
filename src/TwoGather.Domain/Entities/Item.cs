@@ -10,7 +10,10 @@ public class Item
     public string Name { get; set; } = string.Empty;
     public ItemStatus Status { get; set; }
     public DateTime? PurchasedAt { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? PlanningNote { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     public List List { get; set; } = null!;
     public Category Category { get; set; } = null!;

@@ -21,7 +21,16 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
             .IsRequired()
             .HasConversion<string>();
 
+        builder.Property(i => i.ImageUrl)
+            .HasMaxLength(2000);
+
+        builder.Property(i => i.PlanningNote)
+            .HasMaxLength(1000);
+
         builder.Property(i => i.CreatedAt)
+            .IsRequired();
+
+        builder.Property(i => i.UpdatedAt)
             .IsRequired();
 
         builder.HasOne(i => i.Category)

@@ -74,6 +74,7 @@ public class MarkItemPurchasedCommandHandler : IRequestHandler<MarkItemPurchased
         var purchasedAt = _dateTimeService.UtcNow;
         item.Status = ItemStatus.Purchased;
         item.PurchasedAt = purchasedAt;
+        item.UpdatedAt = purchasedAt;
 
         await _itemRepository.UpdateAsync(item, cancellationToken);
         await _itemRepository.SaveChangesAsync(cancellationToken);
