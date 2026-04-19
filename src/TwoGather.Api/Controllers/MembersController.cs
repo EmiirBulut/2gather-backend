@@ -1,10 +1,13 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TwoGather.Application.Features.Members.Commands.CancelInvite;
 using TwoGather.Application.Features.Members.Commands.InviteMember;
 using TwoGather.Application.Features.Members.Commands.RemoveMember;
+using TwoGather.Application.Features.Members.Commands.ResendInvite;
 using TwoGather.Application.Features.Members.Commands.UpdateMemberRole;
 using TwoGather.Application.Features.Members.DTOs;
+using TwoGather.Application.Features.Members.Queries.GetPendingInvites;
 using TwoGather.Domain.Enums;
 
 namespace TwoGather.Api.Controllers;
@@ -50,6 +53,34 @@ public class MembersController : ControllerBase
     {
         var result = await _mediator.Send(new UpdateMemberRoleCommand(listId, userId, request.Role), cancellationToken);
         return Ok(result);
+    }
+    [HttpGet("invites")]
+    public async Task<ActionResult<IReadOnlyList<PendingInviteDto>>> GetPendingInvites(
+        Guid listId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetPendingInvitesQuery(listId), cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpDelete("invites/{inviteId:guid}")]
+    public async Task<IActionResult> CancelInvite(
+        Guid listId,
+        Guid inviteId,
+        CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new CancelInviteCommand(listId, inviteId), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("invites/{inviteId:guid}/resend")]
+    public async Task<IActionResult> ResendInvite(
+        Guid listId,
+        Guid inviteId,
+        CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new ResendInviteCommand(listId, inviteId), cancellationToken);
+        return NoContent();
     }
 }
 
