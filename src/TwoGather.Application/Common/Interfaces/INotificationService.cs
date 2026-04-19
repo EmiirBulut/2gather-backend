@@ -11,6 +11,7 @@ public interface INotificationService
     Task ItemUpdatedAsync(Guid listId, ItemDto item, CancellationToken cancellationToken = default);
     Task ItemPurchasedAsync(Guid listId, Guid itemId, DateTime purchasedAt, CancellationToken cancellationToken = default);
     Task ItemDeletedAsync(Guid listId, Guid itemId, CancellationToken cancellationToken = default);
+    Task ItemImageUpdatedAsync(Guid listId, Guid itemId, string imageUrl, CancellationToken cancellationToken = default);
     Task OptionAddedAsync(Guid listId, Guid itemId, ItemOptionDto option, CancellationToken cancellationToken = default);
     Task OptionUpdatedAsync(Guid listId, Guid itemId, ItemOptionDto option, CancellationToken cancellationToken = default);
     Task OptionDeletedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default);

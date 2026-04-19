@@ -9,6 +9,9 @@ public record ItemDto(
     string Name,
     ItemStatus Status,
     DateTime? PurchasedAt,
+    string? ImageUrl,
+    string? PlanningNote,
     DateTime CreatedAt,
+    DateTime UpdatedAt,
     int OptionsCount
 );

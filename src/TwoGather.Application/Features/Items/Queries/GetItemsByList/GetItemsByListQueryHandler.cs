@@ -37,7 +37,10 @@ public class GetItemsByListQueryHandler : IRequestHandler<GetItemsByListQuery, I
             x.item.Name,
             x.item.Status,
             x.item.PurchasedAt,
+            x.item.ImageUrl,
+            x.item.PlanningNote,
             x.item.CreatedAt,
+            x.item.UpdatedAt,
             x.optionsCount
         )).ToList();
     }

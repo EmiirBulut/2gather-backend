@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IOptionRatingRepository, OptionRatingRepository>();
         services.AddScoped<IOptionClaimRepository, OptionClaimRepository>();
 
+        services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IEmailService, ConsoleEmailService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();

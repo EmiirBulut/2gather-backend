@@ -5,6 +5,7 @@ using TwoGather.Application.Features.Items.Commands.CreateItem;
 using TwoGather.Application.Features.Items.Commands.DeleteItem;
 using TwoGather.Application.Features.Items.Commands.MarkItemPurchased;
 using TwoGather.Application.Features.Items.Commands.UpdateItem;
+using TwoGather.Application.Features.Items.Commands.UploadItemImage;
 using TwoGather.Application.Features.Items.DTOs;
 using TwoGather.Application.Features.Items.Queries.GetItemsByList;
 using TwoGather.Domain.Enums;
@@ -45,7 +46,7 @@ public class ItemsController : ControllerBase
         [FromBody] CreateItemRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new CreateItemCommand(listId, request.CategoryId, request.Name), cancellationToken);
+        var result = await _mediator.Send(new CreateItemCommand(listId, request.CategoryId, request.Name, request.ImageUrl, request.PlanningNote), cancellationToken);
         return Ok(result);
     }
 
@@ -62,8 +63,26 @@ public class ItemsController : ControllerBase
         [FromBody] UpdateItemRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new UpdateItemCommand(itemId, request.Name, request.CategoryId), cancellationToken);
+        var result = await _mediator.Send(new UpdateItemCommand(itemId, request.Name, request.CategoryId, request.ImageUrl, request.PlanningNote), cancellationToken);
         return Ok(result);
+    }
+
+    [HttpPost("api/items/{itemId:guid}/image")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<string>> UploadImage(
+        Guid itemId,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest("Image must be smaller than 5MB.");
+
+        if (file.ContentType != "image/jpeg" && file.ContentType != "image/png")
+            return BadRequest("Only JPEG and PNG images are allowed.");
+
+        using var stream = file.OpenReadStream();
+        var imageUrl = await _mediator.Send(new UploadItemImageCommand(itemId, stream, file.FileName), cancellationToken);
+        return Ok(imageUrl);
     }
 
     [HttpDelete("api/items/{itemId:guid}")]
@@ -74,5 +93,5 @@ public class ItemsController : ControllerBase
     }
 }
 
-public record CreateItemRequest(Guid CategoryId, string Name);
-public record UpdateItemRequest(string Name, Guid CategoryId);
+public record CreateItemRequest(Guid CategoryId, string Name, string? ImageUrl, string? PlanningNote);
+public record UpdateItemRequest(string Name, Guid CategoryId, string? ImageUrl, string? PlanningNote);
