@@ -6,5 +6,6 @@ public record CategoryReportDto(
     int TotalItems,
     int PendingCount,
     int PurchasedCount,
-    decimal Spent
+    decimal Spent,
+    decimal CompletionPercentage
 );
