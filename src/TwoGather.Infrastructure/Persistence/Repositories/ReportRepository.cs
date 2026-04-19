@@ -36,7 +36,21 @@ public class ReportRepository : IReportRepository
             .Sum(i => i.SelectedOptionPrice);
         var estimatedTotal = items.Sum(i => i.SelectedOptionPrice);
 
-        return new ListSummaryDto(totalItems, pendingCount, purchasedCount, totalSpent, estimatedTotal);
+        var budgetUsagePercentage = estimatedTotal > 0
+            ? Math.Round(totalSpent / estimatedTotal * 100, 1)
+            : 0;
+        var remainingBudget = estimatedTotal - totalSpent;
+
+        var readinessPercentage = totalItems > 0
+            ? Math.Round((decimal)purchasedCount / totalItems * 100, 1)
+            : 0;
+        var readinessLabel = readinessPercentage >= 80 ? "Tamamlandı"
+            : readinessPercentage >= 50 ? "İyi Gidiyor"
+            : readinessPercentage >= 20 ? "Devam Ediyor"
+            : "Yeni Başladı";
+
+        return new ListSummaryDto(totalItems, pendingCount, purchasedCount, totalSpent, estimatedTotal,
+            budgetUsagePercentage, remainingBudget, readinessPercentage, readinessLabel);
     }
 
     public async Task<IReadOnlyList<CategoryReportDto>> GetCategoryReportAsync(Guid listId, CancellationToken cancellationToken = default)
@@ -57,16 +71,51 @@ public class ReportRepository : IReportRepository
 
         return rows
             .GroupBy(r => new { r.CategoryId, r.CategoryName })
-            .Select(g => new CategoryReportDto(
-                g.Key.CategoryId,
-                g.Key.CategoryName,
-                g.Count(),
-                g.Count(r => r.Status == ItemStatus.Pending),
-                g.Count(r => r.Status == ItemStatus.Purchased),
-                g.Where(r => r.Status == ItemStatus.Purchased).Sum(r => r.SelectedOptionPrice)
-            ))
+            .Select(g =>
+            {
+                var total = g.Count();
+                var purchased = g.Count(r => r.Status == ItemStatus.Purchased);
+                return new CategoryReportDto(
+                    g.Key.CategoryId,
+                    g.Key.CategoryName,
+                    total,
+                    g.Count(r => r.Status == ItemStatus.Pending),
+                    purchased,
+                    g.Where(r => r.Status == ItemStatus.Purchased).Sum(r => r.SelectedOptionPrice),
+                    total > 0 ? Math.Round((decimal)purchased / total * 100, 1) : 0
+                );
+            })
             .OrderBy(r => r.CategoryName)
             .ToList();
+    }
+
+    public async Task<IReadOnlyList<ReportItemDto>> GetItemsForReportAsync(Guid listId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Items.AsNoTracking()
+            .Where(i => i.ListId == listId)
+            .Select(i => new ReportItemDto
+            {
+                Id = i.Id,
+                ImageUrl = i.ImageUrl,
+                Name = i.Name,
+                CategoryName = i.Category!.Name,
+                Status = i.Status,
+                SelectedOptionTitle = i.Options
+                    .Where(o => o.IsSelected)
+                    .Select(o => o.Title)
+                    .FirstOrDefault(),
+                EstimatedPrice = i.Options
+                    .Where(o => o.IsSelected && o.Price.HasValue)
+                    .Select(o => o.Price)
+                    .FirstOrDefault(),
+                Currency = i.Options
+                    .Where(o => o.IsSelected)
+                    .Select(o => o.Currency)
+                    .FirstOrDefault()
+            })
+            .OrderBy(i => i.Status)
+            .ThenBy(i => i.CategoryName)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<SpendingBreakdownDto>> GetSpendingBreakdownAsync(Guid listId, CancellationToken cancellationToken = default)

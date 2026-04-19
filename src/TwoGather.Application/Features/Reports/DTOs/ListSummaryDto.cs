@@ -5,5 +5,9 @@ public record ListSummaryDto(
     int PendingCount,
     int PurchasedCount,
     decimal TotalSpent,
-    decimal EstimatedTotal
+    decimal EstimatedTotal,
+    decimal BudgetUsagePercentage,
+    decimal RemainingBudget,
+    decimal ReadinessPercentage,
+    string ReadinessLabel
 );

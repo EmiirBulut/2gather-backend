@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TwoGather.Application.Features.Reports.DTOs;
 using TwoGather.Application.Features.Reports.Queries.GetCategoryReport;
+using TwoGather.Application.Features.Reports.Queries.GetItemsForReport;
 using TwoGather.Application.Features.Reports.Queries.GetListSummary;
 using TwoGather.Application.Features.Reports.Queries.GetSpendingBreakdown;
 
@@ -38,6 +39,13 @@ public class ReportsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<SpendingBreakdownDto>>> GetSpending(Guid listId, CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(new GetSpendingBreakdownQuery(listId), cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("items")]
+    public async Task<ActionResult<IReadOnlyList<ReportItemDto>>> GetItems(Guid listId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetItemsForReportQuery(listId), cancellationToken);
         return Ok(result);
     }
 }
