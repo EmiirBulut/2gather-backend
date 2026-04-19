@@ -27,6 +27,10 @@ public class ListInviteRepository : IListInviteRepository
             .OrderBy(i => i.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<int> GetPendingInvitesCountAsync(Guid listId, CancellationToken cancellationToken = default)
+        => await _dbContext.ListInvites.AsNoTracking()
+            .CountAsync(i => i.ListId == listId && i.AcceptedAt == null, cancellationToken);
+
     public async Task AddAsync(ListInvite invite, CancellationToken cancellationToken = default)
         => await _dbContext.ListInvites.AddAsync(invite, cancellationToken);
 

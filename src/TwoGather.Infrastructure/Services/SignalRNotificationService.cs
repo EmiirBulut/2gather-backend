@@ -3,6 +3,7 @@ using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Claims.DTOs;
 using TwoGather.Application.Features.Items.DTOs;
 using TwoGather.Application.Features.Members.DTOs;
+using TwoGather.Application.Features.Notifications.DTOs;
 using TwoGather.Application.Features.Options.DTOs;
 
 namespace TwoGather.Infrastructure.Services;
@@ -63,4 +64,7 @@ public class SignalRNotificationService<THub> : INotificationService where THub 
 
     public Task ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken cancellationToken = default)
         => _hubContext.Clients.User(ownerUserId.ToString()).SendAsync("ClaimPending", new { listId, claim }, cancellationToken);
+
+    public Task NotificationCountChangedAsync(Guid listId, Guid ownerUserId, NotificationCountDto count, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.User(ownerUserId.ToString()).SendAsync("NotificationCountChanged", new { listId, count }, cancellationToken);
 }

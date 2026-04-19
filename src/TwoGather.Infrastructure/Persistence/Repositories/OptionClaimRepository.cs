@@ -30,6 +30,10 @@ public class OptionClaimRepository : IOptionClaimRepository
             .Where(c => c.OptionId == optionId && c.Status == ClaimStatus.Approved)
             .SumAsync(c => c.Percentage, ct);
 
+    public async Task<int> GetPendingClaimsCountForListAsync(Guid listId, CancellationToken ct)
+        => await _dbContext.OptionClaims.AsNoTracking()
+            .CountAsync(c => c.Status == ClaimStatus.Pending && c.Option.Item.ListId == listId, ct);
+
     public async Task AddAsync(OptionClaim claim, CancellationToken ct)
         => await _dbContext.OptionClaims.AddAsync(claim, ct);
 

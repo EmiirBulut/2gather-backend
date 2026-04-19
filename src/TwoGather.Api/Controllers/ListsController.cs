@@ -6,6 +6,8 @@ using TwoGather.Application.Features.Lists.Commands.DeleteList;
 using TwoGather.Application.Features.Lists.DTOs;
 using TwoGather.Application.Features.Lists.Queries.GetListById;
 using TwoGather.Application.Features.Lists.Queries.GetUserLists;
+using TwoGather.Application.Features.Notifications.DTOs;
+using TwoGather.Application.Features.Notifications.Queries.GetNotificationCount;
 
 namespace TwoGather.Api.Controllers;
 
@@ -49,5 +51,12 @@ public class ListsController : ControllerBase
     {
         await _mediator.Send(new DeleteListCommand(listId), cancellationToken);
         return NoContent();
+    }
+
+    [HttpGet("{listId:guid}/notifications/count")]
+    public async Task<ActionResult<NotificationCountDto>> GetNotificationCount(Guid listId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetNotificationCountQuery(listId), cancellationToken);
+        return Ok(result);
     }
 }
