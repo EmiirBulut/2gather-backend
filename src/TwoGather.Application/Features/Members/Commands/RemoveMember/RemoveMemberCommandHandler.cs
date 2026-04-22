@@ -9,11 +9,16 @@ namespace TwoGather.Application.Features.Members.Commands.RemoveMember;
 public class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCommand>
 {
     private readonly IListRepository _listRepository;
+    private readonly INotificationService _notificationService;
     private readonly ICurrentUserService _currentUserService;
 
-    public RemoveMemberCommandHandler(IListRepository listRepository, ICurrentUserService currentUserService)
+    public RemoveMemberCommandHandler(
+        IListRepository listRepository,
+        INotificationService notificationService,
+        ICurrentUserService currentUserService)
     {
         _listRepository = listRepository;
+        _notificationService = notificationService;
         _currentUserService = currentUserService;
     }
 
@@ -33,5 +38,7 @@ public class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCommand>
 
         await _listRepository.RemoveMemberAsync(targetMember, cancellationToken);
         await _listRepository.SaveChangesAsync(cancellationToken);
+
+        await _notificationService.MemberRemovedAsync(request.ListId, request.UserId, cancellationToken);
     }
 }
