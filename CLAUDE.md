@@ -365,7 +365,7 @@ await Clients.User(ownerUserId.ToString()).SendAsync("NotificationCountChanged",
 - All configurable values in `appsettings.json`. Never hardcode connection strings or secrets.
 - Use `IOptions<T>` pattern for typed config binding.
 - Secrets in environment variables or `appsettings.Development.json` (git-ignored).
-- Required config sections: `ConnectionStrings:DefaultConnection`, `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience`, `Email:SmtpHost`, `Invite:TokenExpiryHours`.
+- Required config sections: `ConnectionStrings:DefaultConnection`, `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience`, `Resend:ApiKey`, `Resend:FromEmail`, `Resend:FromName`, `Resend:AppBaseUrl`, `Invite:TokenExpiryHours`.
 
 ---
 
