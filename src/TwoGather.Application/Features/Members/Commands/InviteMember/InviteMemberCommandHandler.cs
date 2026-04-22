@@ -12,6 +12,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
 {
     private readonly IListRepository _listRepository;
     private readonly IListInviteRepository _inviteRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IEmailService _emailService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IDateTimeService _dateTimeService;
@@ -19,12 +20,14 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
     public InviteMemberCommandHandler(
         IListRepository listRepository,
         IListInviteRepository inviteRepository,
+        IUserRepository userRepository,
         IEmailService emailService,
         ICurrentUserService currentUserService,
         IDateTimeService dateTimeService)
     {
         _listRepository = listRepository;
         _inviteRepository = inviteRepository;
+        _userRepository = userRepository;
         _emailService = emailService;
         _currentUserService = currentUserService;
         _dateTimeService = dateTimeService;
@@ -37,6 +40,9 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
 
         var callerMember = list.Members.FirstOrDefault(m => m.UserId == _currentUserService.UserId);
         ListAuthorizationHelper.RequireRole(callerMember, MemberRole.Owner, MemberRole.Editor);
+
+        var inviter = await _userRepository.GetByIdAsync(_currentUserService.UserId, cancellationToken)
+            ?? throw new NotFoundException(nameof(User), _currentUserService.UserId);
 
         var token = Guid.NewGuid().ToString("N");
         var invite = new ListInvite
@@ -53,7 +59,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
         await _inviteRepository.AddAsync(invite, cancellationToken);
         await _inviteRepository.SaveChangesAsync(cancellationToken);
 
-        await _emailService.SendInviteEmailAsync(request.Email, list.Name, token, cancellationToken);
+        await _emailService.SendInviteAsync(request.Email, list.Name, inviter.DisplayName, token, request.Role, cancellationToken);
 
         return new InviteDto(invite.Id, invite.InvitedEmail, invite.Token, invite.ExpiresAt);
     }

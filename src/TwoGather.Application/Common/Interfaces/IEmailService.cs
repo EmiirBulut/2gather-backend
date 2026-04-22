@@ -1,6 +1,8 @@
+using TwoGather.Domain.Enums;
+
 namespace TwoGather.Application.Common.Interfaces;
 
 public interface IEmailService
 {
-    Task SendInviteEmailAsync(string toEmail, string listName, string inviteToken, CancellationToken cancellationToken = default);
+    Task SendInviteAsync(string toEmail, string listName, string inviterName, string inviteToken, MemberRole role, CancellationToken cancellationToken = default);
 }

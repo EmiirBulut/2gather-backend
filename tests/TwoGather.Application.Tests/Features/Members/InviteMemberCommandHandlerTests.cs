@@ -11,6 +11,7 @@ public class InviteMemberCommandHandlerTests
 {
     private readonly Mock<IListRepository> _listRepo = new();
     private readonly Mock<IListInviteRepository> _inviteRepo = new();
+    private readonly Mock<IUserRepository> _userRepo = new();
     private readonly Mock<IEmailService> _emailService = new();
     private readonly Mock<ICurrentUserService> _currentUser = new();
     private readonly Mock<IDateTimeService> _dateTime = new();
@@ -22,6 +23,7 @@ public class InviteMemberCommandHandlerTests
     private InviteMemberCommandHandler CreateHandler() => new(
         _listRepo.Object,
         _inviteRepo.Object,
+        _userRepo.Object,
         _emailService.Object,
         _currentUser.Object,
         _dateTime.Object);
@@ -48,6 +50,8 @@ public class InviteMemberCommandHandlerTests
     {
         _currentUser.Setup(s => s.UserId).Returns(_userId);
         _dateTime.Setup(s => s.UtcNow).Returns(_now);
+        _userRepo.Setup(r => r.GetByIdAsync(_userId, default))
+            .ReturnsAsync(new User { Id = _userId, DisplayName = "Test User", Email = "test@example.com", PasswordHash = "", CreatedAt = _now });
     }
 
     [Theory]
@@ -72,7 +76,7 @@ public class InviteMemberCommandHandlerTests
         Assert.Equal(_now.AddHours(48), capturedInvite.ExpiresAt);
 
         _inviteRepo.Verify(r => r.SaveChangesAsync(default), Times.Once);
-        _emailService.Verify(e => e.SendInviteEmailAsync("guest@example.com", "Test List", capturedInvite.Token, default), Times.Once);
+        _emailService.Verify(e => e.SendInviteAsync("guest@example.com", "Test List", "Test User", capturedInvite.Token, MemberRole.Viewer, default), Times.Once);
 
         Assert.Equal(capturedInvite.Id, result.InviteId);
         Assert.Equal(capturedInvite.Token, result.Token);
@@ -88,7 +92,7 @@ public class InviteMemberCommandHandlerTests
             CreateHandler().Handle(new InviteMemberCommand(_listId, "guest@example.com", MemberRole.Viewer), default));
 
         _inviteRepo.Verify(r => r.AddAsync(It.IsAny<ListInvite>(), default), Times.Never);
-        _emailService.Verify(e => e.SendInviteEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), default), Times.Never);
+        _emailService.Verify(e => e.SendInviteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<MemberRole>(), default), Times.Never);
     }
 
     [Fact]
