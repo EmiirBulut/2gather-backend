@@ -12,6 +12,7 @@ public class AcceptInviteCommandHandlerTests
     private readonly Mock<IListInviteRepository> _inviteRepo = new();
     private readonly Mock<IListRepository> _listRepo = new();
     private readonly Mock<IUserRepository> _userRepo = new();
+    private readonly Mock<INotificationService> _notifications = new();
     private readonly Mock<ICurrentUserService> _currentUser = new();
     private readonly Mock<IDateTimeService> _dateTime = new();
 
@@ -24,6 +25,7 @@ public class AcceptInviteCommandHandlerTests
         _inviteRepo.Object,
         _listRepo.Object,
         _userRepo.Object,
+        _notifications.Object,
         _currentUser.Object,
         _dateTime.Object);
 
@@ -76,6 +78,7 @@ public class AcceptInviteCommandHandlerTests
 
         _inviteRepo.Verify(r => r.UpdateAcceptedAtAsync(It.Is<ListInvite>(i => i.AcceptedAt == _now), default), Times.Once);
         _inviteRepo.Verify(r => r.SaveChangesAsync(default), Times.Once);
+        _notifications.Verify(n => n.MemberJoinedAsync(_listId, It.IsAny<Application.Features.Members.DTOs.MemberDto>(), default), Times.Once);
 
         Assert.Equal(_userId, result.UserId);
         Assert.Equal(MemberRole.Editor, result.Role);

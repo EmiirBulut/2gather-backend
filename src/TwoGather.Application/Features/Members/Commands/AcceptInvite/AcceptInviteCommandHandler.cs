@@ -11,6 +11,7 @@ public class AcceptInviteCommandHandler : IRequestHandler<AcceptInviteCommand, M
     private readonly IListInviteRepository _inviteRepository;
     private readonly IListRepository _listRepository;
     private readonly IUserRepository _userRepository;
+    private readonly INotificationService _notificationService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IDateTimeService _dateTimeService;
 
@@ -18,12 +19,14 @@ public class AcceptInviteCommandHandler : IRequestHandler<AcceptInviteCommand, M
         IListInviteRepository inviteRepository,
         IListRepository listRepository,
         IUserRepository userRepository,
+        INotificationService notificationService,
         ICurrentUserService currentUserService,
         IDateTimeService dateTimeService)
     {
         _inviteRepository = inviteRepository;
         _listRepository = listRepository;
         _userRepository = userRepository;
+        _notificationService = notificationService;
         _currentUserService = currentUserService;
         _dateTimeService = dateTimeService;
     }
@@ -80,6 +83,9 @@ public class AcceptInviteCommandHandler : IRequestHandler<AcceptInviteCommand, M
         // Both repos share the same DbContext — one SaveChanges commits all tracked changes
         await _inviteRepository.SaveChangesAsync(cancellationToken);
 
-        return new MemberDto(currentUserId, user.DisplayName, user.Email, member.Role, member.JoinedAt);
+        var memberDto = new MemberDto(currentUserId, user.DisplayName, user.Email, member.Role, member.JoinedAt);
+        await _notificationService.MemberJoinedAsync(invite.ListId, memberDto, cancellationToken);
+
+        return memberDto;
     }
 }
