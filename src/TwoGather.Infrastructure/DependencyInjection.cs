@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Resend;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Infrastructure.Persistence;
 using TwoGather.Infrastructure.Persistence.Repositories;
@@ -19,6 +20,12 @@ public static class DependencyInjection
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+        services.Configure<ResendOptions>(configuration.GetSection(ResendOptions.SectionName));
+        services.Configure<ResendClientOptions>(o =>
+            o.ApiToken = configuration["Resend:ApiKey"] ?? string.Empty);
+        services.AddOptions();
+        services.AddHttpClient<ResendClient>();
+        services.AddTransient<IResend, ResendClient>();
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IListRepository, ListRepository>();
@@ -32,7 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IOptionClaimRepository, OptionClaimRepository>();
 
         services.AddScoped<IFileStorageService, FileStorageService>();
-        services.AddScoped<IEmailService, ConsoleEmailService>();
+        services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IDateTimeService, DateTimeService>();

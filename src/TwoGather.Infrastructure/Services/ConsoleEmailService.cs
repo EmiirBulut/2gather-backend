@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Domain.Enums;
 
 namespace TwoGather.Infrastructure.Services;
 
@@ -12,11 +13,11 @@ public class ConsoleEmailService : IEmailService
         _logger = logger;
     }
 
-    public Task SendInviteEmailAsync(string toEmail, string listName, string inviteToken, CancellationToken cancellationToken = default)
+    public Task SendInviteAsync(string toEmail, string listName, string inviterName, string inviteToken, MemberRole role, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
-            "[EMAIL STUB] Invite sent to {Email} for list '{ListName}'. Token: {Token}",
-            toEmail, listName, inviteToken);
+            "[EMAIL STUB] Invite sent to {Email} for list '{ListName}' by {Inviter} ({Role}). Token: {Token}",
+            toEmail, listName, inviterName, role, inviteToken);
 
         return Task.CompletedTask;
     }

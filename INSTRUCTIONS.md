@@ -267,7 +267,7 @@ public class PendingInviteDto
 `Application/Features/Members/ResendInviteCommand.cs` — `InviteId`:
 - Sadece Owner çağırabilir
 - Mevcut daveti bulur, `ExpiresAt`'ı `UtcNow + 7 gün` olarak günceller
-- `IEmailService.SendInviteAsync` tekrar çağır (stub)
+- `IEmailService.SendInviteAsync` tekrar çağır (bkz. Phase 18)
 
 ### Step 14.4 — Controller güncellemesi
 
@@ -442,6 +442,344 @@ Task NotificationCountChangedAsync(Guid listId, Guid ownerUserId, NotificationCo
 `SignalRNotificationService`'de `NotificationCountChangedAsync` implementasyonu: claim oluşturulunca tüm gruba değil sadece Owner'a gönder. Hub'da `Clients.User(ownerUserId.ToString()).SendAsync(...)` kullan — tüm grup değil.
 
 **Checkpoint**: Owner listeye girdiğinde bildirim sayısını çekebiliyor. Yeni claim geldiğinde Owner'ın badge'i SignalR ile anlık güncelleniyor.
+
+---
+
+## Phase 18 — Resend Email Entegrasyonu (Invite Mail)
+
+Bu phase mevcut `IEmailService` stub'ını gerçek Resend implementasyonuyla değiştirir.
+Davet maili akışı: Owner "Davet Et"e tıklar → `InviteMemberCommand` handler çalışır → `IEmailService.SendInviteAsync` çağrılır → Resend API üzerinden mail gider.
+
+### Step 18.1 — NuGet paketi
+
+```
+dotnet add Infrastructure package Resend
+```
+
+`Infrastructure.csproj`'a eklenen paket: `Resend` (resmi .NET SDK).
+
+### Step 18.2 — Konfigürasyon
+
+`appsettings.json`'a ekle:
+
+```json
+"Resend": {
+  "ApiKey": "",
+  "FromEmail": "davet@yourdomain.com",
+  "FromName": "2gather"
+}
+```
+
+`appsettings.Development.json`'da (git-ignored) gerçek API key'i tut:
+
+```json
+"Resend": {
+  "ApiKey": "re_xxxxxxxxxxxxxxxxxxxx",
+  "FromEmail": "onboarding@resend.dev",
+  "FromName": "2gather"
+}
+```
+
+> **Not**: Development'ta kendi domain'ini doğrulamadan önce Resend'in `onboarding@resend.dev` adresini kullanabilirsin. Bu adres sadece Resend hesabına kayıtlı e-posta adresine gönderim yapar.
+
+`Infrastructure/Options/ResendOptions.cs` oluştur:
+
+```csharp
+public class ResendOptions
+{
+    public const string SectionName = "Resend";
+    public string ApiKey { get; set; } = string.Empty;
+    public string FromEmail { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+}
+```
+
+### Step 18.3 — IEmailService interface güncelleme
+
+`Application/Common/Interfaces/IEmailService.cs`'i kontrol et. Eğer stub hâlâ boşsa veya yoksa şu şekilde tanımla:
+
+```csharp
+public interface IEmailService
+{
+    Task SendInviteAsync(
+        string toEmail,
+        string listName,
+        string inviterName,
+        string inviteToken,
+        MemberRole role,
+        CancellationToken ct);
+}
+```
+
+Bu interface Application katmanında kalır — Infrastructure'a referans vermez.
+
+### Step 18.4 — ResendEmailService implementasyonu
+
+`Infrastructure/Services/ResendEmailService.cs` oluştur:
+
+```csharp
+using Microsoft.Extensions.Options;
+using Resend;
+using Application.Common.Interfaces;
+using Domain.Enums;
+using Infrastructure.Options;
+
+public sealed class ResendEmailService : IEmailService
+{
+    private readonly IResend _resend;
+    private readonly ResendOptions _options;
+    private readonly ILogger<ResendEmailService> _logger;
+
+    public ResendEmailService(
+        IResend resend,
+        IOptions<ResendOptions> options,
+        ILogger<ResendEmailService> logger)
+    {
+        _resend = resend;
+        _options = options.Value;
+        _logger = logger;
+    }
+
+    public async Task SendInviteAsync(
+        string toEmail,
+        string listName,
+        string inviterName,
+        string inviteToken,
+        MemberRole role,
+        CancellationToken ct)
+    {
+        var inviteUrl = $"{_options.AppBaseUrl}/invite/{inviteToken}";
+        var roleLabel = role switch
+        {
+            MemberRole.Editor => "Editör",
+            MemberRole.Viewer => "İzleyici",
+            _ => role.ToString()
+        };
+
+        var message = new EmailMessage
+        {
+            From = $"{_options.FromName} <{_options.FromEmail}>",
+            To = { toEmail },
+            Subject = $"{inviterName} sizi \"{listName}\" listesine davet etti",
+            HtmlBody = BuildInviteHtml(inviterName, listName, roleLabel, inviteUrl)
+        };
+
+        try
+        {
+            await _resend.EmailSendAsync(message, ct);
+            _logger.LogInformation(
+                "Invite email sent to {Email} for list {ListName}", toEmail, listName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to send invite email to {Email} for list {ListName}", toEmail, listName);
+            throw;
+        }
+    }
+
+    private static string BuildInviteHtml(
+        string inviterName,
+        string listName,
+        string roleLabel,
+        string inviteUrl) => $"""
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>2gather — Davet</title>
+        </head>
+        <body style="margin:0;padding:0;background-color:#F5F3EE;font-family:'Inter',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F3EE;padding:40px 0;">
+            <tr>
+              <td align="center">
+                <table width="560" cellpadding="0" cellspacing="0"
+                       style="background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E8E6E0;">
+
+                  <!-- Header -->
+                  <tr>
+                    <td style="background:#3D5A4C;padding:32px 40px;">
+                      <p style="margin:0;font-size:22px;font-weight:700;color:#FFFFFF;
+                                letter-spacing:-0.5px;">2gather</p>
+                      <p style="margin:4px 0 0;font-size:12px;color:#B8CBB8;
+                                letter-spacing:0.05em;">BİRLİKTE PLANLAYIN</p>
+                    </td>
+                  </tr>
+
+                  <!-- Body -->
+                  <tr>
+                    <td style="padding:40px;">
+                      <p style="margin:0 0 8px;font-size:11px;color:#9B9B9B;
+                                letter-spacing:0.1em;text-transform:uppercase;">Davet</p>
+                      <h1 style="margin:0 0 24px;font-size:28px;font-weight:700;
+                                 color:#1A1A1A;line-height:1.2;">
+                        Sizi bir listeye davet ettiler
+                      </h1>
+
+                      <p style="margin:0 0 24px;font-size:15px;color:#6B6B6B;line-height:1.6;">
+                        <strong style="color:#1A1A1A;">{inviterName}</strong>,
+                        sizi <strong style="color:#1A1A1A;">"{listName}"</strong>
+                        listesine <strong style="color:#3D5A4C;">{roleLabel}</strong>
+                        olarak davet etti.
+                      </p>
+
+                      <!-- Role Info Box -->
+                      <table width="100%" cellpadding="0" cellspacing="0"
+                             style="background:#EEF2EF;border-radius:10px;margin-bottom:32px;">
+                        <tr>
+                          <td style="padding:16px 20px;">
+                            <p style="margin:0;font-size:13px;color:#3D5A4C;font-weight:600;">
+                              {roleLabel} olarak şunları yapabilirsiniz:
+                            </p>
+                            <p style="margin:6px 0 0;font-size:13px;color:#6B8F7A;line-height:1.5;">
+                              {GetRoleDescription(roleLabel)}
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <!-- CTA Button -->
+                      <table cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="background:#3D5A4C;border-radius:10px;">
+                            <a href="{inviteUrl}"
+                               style="display:inline-block;padding:14px 32px;font-size:15px;
+                                      font-weight:600;color:#FFFFFF;text-decoration:none;">
+                              Daveti Kabul Et →
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style="margin:24px 0 0;font-size:13px;color:#9B9B9B;line-height:1.5;">
+                        Bu davet 7 gün içinde geçerliliğini yitirir. Butona tıklayamazsanız
+                        aşağıdaki bağlantıyı tarayıcınıza kopyalayın:
+                      </p>
+                      <p style="margin:8px 0 0;font-size:12px;color:#9B9B9B;word-break:break-all;">
+                        {inviteUrl}
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding:24px 40px;border-top:1px solid #E8E6E0;">
+                      <p style="margin:0;font-size:12px;color:#9B9B9B;">
+                        Bu daveti siz istemediyseniz bu e-postayı görmezden gelebilirsiniz.
+                        Hesabınız güvende.
+                      </p>
+                      <p style="margin:8px 0 0;font-size:12px;color:#9B9B9B;">
+                        © 2gather — Birlikte Planlayın
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+        """;
+
+    private static string GetRoleDescription(string roleLabel) => roleLabel switch
+    {
+        "Editör" => "Liste üzerinde item ve seçenek ekleyebilir, düzenleyebilir ve işaretleyebilirsiniz.",
+        "İzleyici" => "Listeyi görüntüleyebilir, ilerlemeyi takip edebilirsiniz.",
+        _ => "Liste üzerinde işlem yapabilirsiniz."
+    };
+}
+```
+
+### Step 18.5 — AppBaseUrl konfigürasyonu
+
+`ResendOptions`'a `AppBaseUrl` ekle (davet linki için):
+
+```csharp
+public class ResendOptions
+{
+    public const string SectionName = "Resend";
+    public string ApiKey { get; set; } = string.Empty;
+    public string FromEmail { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+    public string AppBaseUrl { get; set; } = string.Empty;
+}
+```
+
+`appsettings.json`'a ekle:
+
+```json
+"Resend": {
+  "ApiKey": "",
+  "FromEmail": "davet@yourdomain.com",
+  "FromName": "2gather",
+  "AppBaseUrl": "https://yourdomain.com"
+}
+```
+
+`appsettings.Development.json`'da:
+
+```json
+"Resend": {
+  "ApiKey": "re_xxxxxxxxxxxxxxxxxxxx",
+  "FromEmail": "onboarding@resend.dev",
+  "FromName": "2gather",
+  "AppBaseUrl": "http://localhost:5173"
+}
+```
+
+### Step 18.6 — DI kaydı
+
+`Infrastructure/DependencyInjection.cs` (veya `Program.cs`'deki `AddInfrastructureServices` extension'ı) içinde:
+
+```csharp
+// Resend options
+services.Configure<ResendOptions>(
+    configuration.GetSection(ResendOptions.SectionName));
+
+// Resend SDK
+services.AddResend(options =>
+{
+    options.ApiToken = configuration["Resend:ApiKey"]
+        ?? throw new InvalidOperationException("Resend:ApiKey is not configured.");
+});
+
+// IEmailService implementasyonu — mevcut stub varsa kaldır, bunu ekle
+services.AddScoped<IEmailService, ResendEmailService>();
+```
+
+### Step 18.7 — InviteMemberCommand handler güncelleme
+
+`Application/Features/Members/InviteMemberCommand.cs` handler'ında `IEmailService.SendInviteAsync` çağrısının zaten var olduğunu doğrula. Eğer stub sırasında yorum satırı veya `// TODO` olarak bırakıldıysa aktif hale getir:
+
+```csharp
+// Handler içinde — invite kaydedildikten sonra:
+await _emailService.SendInviteAsync(
+    toEmail: command.Email,
+    listName: list.Name,
+    inviterName: currentUser.DisplayName,
+    inviteToken: invite.Token,
+    role: command.Role,
+    ct: cancellationToken);
+```
+
+`ResendInviteCommand` handler'ında da aynı çağrıyı yap — `ExpiresAt` güncellendikten sonra.
+
+### Step 18.8 — CLAUDE.md güncellemesi
+
+`CLAUDE.md §14 Configuration`'daki `Email:SmtpHost` satırını kaldır, yerine ekle:
+
+```
+Resend:ApiKey, Resend:FromEmail, Resend:FromName, Resend:AppBaseUrl
+```
+
+**Checkpoint**: 
+- `POST /api/lists/{listId}/members/invite` çağrısı sonrasında davet e-postası Resend üzerinden gönderiliyor
+- `POST /api/lists/{listId}/members/invites/{inviteId}/resend` çağrısında mail yeniden gönderiliyor
+- Mail şablonu 2gather tasarım diline uygun (koyu yeşil header, davet butonu, rol açıklaması)
+- API key environment variable'da, kaynak kodda yok
+- `dotnet build` sıfır hata
 
 ---
 
