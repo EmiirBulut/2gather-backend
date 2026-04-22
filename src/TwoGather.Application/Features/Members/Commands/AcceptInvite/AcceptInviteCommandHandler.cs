@@ -48,6 +48,9 @@ public class AcceptInviteCommandHandler : IRequestHandler<AcceptInviteCommand, M
         var user = await _userRepository.GetByIdAsync(currentUserId, cancellationToken)
             ?? throw new NotFoundException(nameof(User), currentUserId);
 
+        if (!string.Equals(user.Email, invite.InvitedEmail, StringComparison.OrdinalIgnoreCase))
+            throw new ForbiddenException("Bu davet size ait değil.");
+
         var now = _dateTimeService.UtcNow;
 
         var member = new ListMember
