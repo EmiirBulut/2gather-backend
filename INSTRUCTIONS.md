@@ -482,7 +482,7 @@ dotnet add Infrastructure package Resend
 
 > **Not**: Development'ta kendi domain'ini doğrulamadan önce Resend'in `onboarding@resend.dev` adresini kullanabilirsin. Bu adres sadece Resend hesabına kayıtlı e-posta adresine gönderim yapar.
 
-`Infrastructure/Options/ResendOptions.cs` oluştur:
+`Infrastructure/Settings/ResendOptions.cs` oluştur:
 
 ```csharp
 public class ResendOptions
@@ -548,7 +548,7 @@ public sealed class ResendEmailService : IEmailService
         MemberRole role,
         CancellationToken ct)
     {
-        var inviteUrl = $"{_options.AppBaseUrl}/invite/{inviteToken}";
+        var inviteUrl = $"{_options.AppBaseUrl}/invite/accept?token={inviteToken}";
         var roleLabel = role switch
         {
             MemberRole.Editor => "Editör",
@@ -738,12 +738,11 @@ public class ResendOptions
 services.Configure<ResendOptions>(
     configuration.GetSection(ResendOptions.SectionName));
 
-// Resend SDK
-services.AddResend(options =>
-{
-    options.ApiToken = configuration["Resend:ApiKey"]
-        ?? throw new InvalidOperationException("Resend:ApiKey is not configured.");
-});
+// Resend SDK — AddResend() extension method mevcut değil, manual kayıt gerekiyor
+services.Configure<ResendClientOptions>(o =>
+    o.ApiToken = configuration["Resend:ApiKey"] ?? string.Empty);
+services.AddHttpClient<ResendClient>();
+services.AddTransient<IResend, ResendClient>();
 
 // IEmailService implementasyonu — mevcut stub varsa kaldır, bunu ekle
 services.AddScoped<IEmailService, ResendEmailService>();

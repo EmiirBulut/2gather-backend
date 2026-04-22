@@ -38,7 +38,7 @@ src/
 │   │   └── Reports/            # Summary, by-category, spending breakdown, item list
 │   ├── Common/
 │   │   ├── Behaviors/          # ValidationBehavior, LoggingBehavior (MediatR pipeline)
-│   │   └── Interfaces/         # ICurrentUserService, IDateTimeService, INotificationService, IFileStorageService
+│   │   └── Interfaces/         # ICurrentUserService, IDateTimeService, INotificationService, IFileStorageService, IEmailService
 │   └── Mappings/               # Manual mapping methods (no AutoMapper — see §6)
 │
 ├── Domain/
@@ -51,7 +51,7 @@ src/
     │   ├── AppDbContext.cs
     │   ├── Configurations/     # IEntityTypeConfiguration<T> per entity
     │   └── Repositories/       # Repository implementations
-    └── Services/               # CurrentUserService, TokenService, InviteService, DateTimeService, SignalRNotificationService, FileStorageService
+    └── Services/               # CurrentUserService, TokenService, DateTimeService, SignalRNotificationService, FileStorageService, ResendEmailService
 ```
 
 ---
@@ -271,7 +271,7 @@ GET    /api/lists/{listId}/reports/items
 - Three roles per list: `Owner`, `Editor`, `Viewer`.
 - **Owner**: full control — invite/remove members, delete list, set final option, review claims, manage invites.
 - **Editor**: create/edit/delete items and options, rate options, create claims, mark purchased (if approved claimant).
-- **Viewer**: read-only. Cannot create claims, rate options, or modify anything.
+- **Viewer**: read-only. Can rate options. Cannot create claims or modify anything.
 - Role checks happen in **command/query handlers** via `ICurrentUserService` — not in controllers.
 - Invite system: GUID token stored in DB, sent via email, user calls `/api/auth/invite/accept`.
 
@@ -314,7 +314,7 @@ OptionUpdated           { listId, itemId, option: ItemOptionDto }
 OptionDeleted           { listId, itemId, optionId }
 OptionFinalized         { listId, itemId, finalOptionId }
 OptionFinalRemoved      { listId, itemId, optionId }
-OptionRatingUpdated     { listId, optionId, averageRating, totalRatings, currentUserScore }
+OptionRatingUpdated     { listId, optionId }
 
 ClaimCreated            { listId, optionId, claim: ClaimDto }
 ClaimReviewed           { listId, optionId, claim: ClaimDto }
@@ -380,4 +380,4 @@ await Clients.User(ownerUserId.ToString()).SendAsync("NotificationCountChanged",
 
 ---
 
-*Last updated: 2026-04-19*
+*Last updated: 2026-04-22*
