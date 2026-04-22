@@ -3,6 +3,7 @@ using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Claims.DTOs;
 using TwoGather.Application.Features.Items.DTOs;
+using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
 
@@ -32,10 +33,21 @@ public class GetItemDetailQueryHandler : IRequestHandler<GetItemDetailQuery, Ite
         var item = await _itemRepository.GetByIdWithCategoryAsync(request.ItemId, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Item), request.ItemId);
 
-        var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
+        var list = await _listRepository.GetByIdWithMembersAndUsersAsync(item.ListId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Entities.List), item.ListId);
+
+        var member = list.Members.FirstOrDefault(m => m.UserId == _currentUserService.UserId);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor, MemberRole.Viewer);
 
         var options = await _optionRepository.GetByItemIdWithRatingsAndClaimsAsync(request.ItemId, _currentUserService.UserId, cancellationToken);
+
+        var owner = list.Members.First(m => m.Role == MemberRole.Owner);
+        var assignedTo = new MemberAvatarDto(
+            owner.UserId,
+            owner.User.DisplayName,
+            owner.User.DisplayName.Length >= 2
+                ? owner.User.DisplayName[..2].ToUpper()
+                : owner.User.DisplayName.ToUpper());
 
         return new ItemDetailDto
         {
@@ -50,6 +62,7 @@ public class GetItemDetailQueryHandler : IRequestHandler<GetItemDetailQuery, Ite
             CategoryId = item.CategoryId,
             CategoryName = item.Category?.Name ?? string.Empty,
             RoomLabel = item.Category?.RoomLabel ?? string.Empty,
+            AssignedTo = assignedTo,
             Options = options.Select(x => new ItemOptionDetailDto
             {
                 Id = x.option.Id,

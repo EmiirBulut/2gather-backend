@@ -16,5 +16,6 @@ public class ItemDetailDto
     public Guid CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public string RoomLabel { get; set; } = string.Empty;
+    public MemberAvatarDto? AssignedTo { get; set; }
     public List<ItemOptionDetailDto> Options { get; set; } = new();
 }
