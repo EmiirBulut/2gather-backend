@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -94,5 +95,11 @@ public class MembersController : ControllerBase
     }
 }
 
-public record InviteMemberRequest(string Email, MemberRole Role);
-public record UpdateMemberRoleRequest(MemberRole Role);
+public record InviteMemberRequest(
+    string Email,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] MemberRole Role
+);
+
+public record UpdateMemberRoleRequest(
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] MemberRole Role
+);

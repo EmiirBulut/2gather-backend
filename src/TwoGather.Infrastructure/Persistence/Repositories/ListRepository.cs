@@ -47,10 +47,13 @@ public class ListRepository : IListRepository
     }
 
     public async Task<IReadOnlyList<MemberDto>> GetMembersByListIdAsync(Guid listId, CancellationToken cancellationToken = default)
-        => await _dbContext.ListMembers.AsNoTracking()
-            .Where(m => m.ListId == listId)
-            .Select(m => new MemberDto(m.UserId, m.User.DisplayName, m.User.Email, m.Role, m.JoinedAt))
-            .ToListAsync(cancellationToken);
+        => await (
+            from m in _dbContext.ListMembers.AsNoTracking()
+            join u in _dbContext.Users.AsNoTracking() on m.UserId equals u.Id
+            where m.ListId == listId
+            orderby m.JoinedAt
+            select new MemberDto(m.UserId, u.DisplayName, u.Email, m.Role, m.JoinedAt)
+        ).ToListAsync(cancellationToken);
 
     public async Task<ListMember?> GetMemberAsync(Guid listId, Guid userId, CancellationToken cancellationToken = default)
         => await _dbContext.ListMembers.AsNoTracking()
@@ -119,11 +122,11 @@ public class ListRepository : IListRepository
                 TotalItemCount = l.Items.Count(),
                 PurchasedItemCount = l.Items.Count(i => i.Status == ItemStatus.Purchased),
                 TotalEstimated = l.Items
-                    .SelectMany(i => i.Options.Where(o => o.IsSelected && o.Price.HasValue))
+                    .SelectMany(i => i.Options.Where(o => (o.IsFinal || o.IsSelected) && o.Price.HasValue))
                     .Sum(o => (decimal?)o.Price) ?? 0,
                 TotalSpent = l.Items
                     .Where(i => i.Status == ItemStatus.Purchased)
-                    .SelectMany(i => i.Options.Where(o => o.IsSelected && o.Price.HasValue))
+                    .SelectMany(i => i.Options.Where(o => (o.IsFinal || o.IsSelected) && o.Price.HasValue))
                     .Sum(o => (decimal?)o.Price) ?? 0,
                 CategorySummaries = l.Items
                     .GroupBy(i => new { i.CategoryId, i.Category.Name, i.Category.RoomLabel })
