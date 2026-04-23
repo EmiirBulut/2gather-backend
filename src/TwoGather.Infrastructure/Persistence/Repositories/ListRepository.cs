@@ -46,6 +46,12 @@ public class ListRepository : IListRepository
         return Task.CompletedTask;
     }
 
+    public async Task<IReadOnlyList<MemberDto>> GetMembersByListIdAsync(Guid listId, CancellationToken cancellationToken = default)
+        => await _dbContext.ListMembers.AsNoTracking()
+            .Where(m => m.ListId == listId)
+            .Select(m => new MemberDto(m.UserId, m.User.DisplayName, m.User.Email, m.Role, m.JoinedAt))
+            .ToListAsync(cancellationToken);
+
     public async Task<ListMember?> GetMemberAsync(Guid listId, Guid userId, CancellationToken cancellationToken = default)
         => await _dbContext.ListMembers.AsNoTracking()
             .FirstOrDefaultAsync(m => m.ListId == listId && m.UserId == userId, cancellationToken);

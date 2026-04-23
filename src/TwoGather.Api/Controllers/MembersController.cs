@@ -7,6 +7,7 @@ using TwoGather.Application.Features.Members.Commands.RemoveMember;
 using TwoGather.Application.Features.Members.Commands.ResendInvite;
 using TwoGather.Application.Features.Members.Commands.UpdateMemberRole;
 using TwoGather.Application.Features.Members.DTOs;
+using TwoGather.Application.Features.Members.Queries.GetMembers;
 using TwoGather.Application.Features.Members.Queries.GetPendingInvites;
 using TwoGather.Domain.Enums;
 
@@ -22,6 +23,15 @@ public class MembersController : ControllerBase
     public MembersController(IMediator mediator)
     {
         _mediator = mediator;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<MemberDto>>> GetMembers(
+        Guid listId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetMembersQuery(listId), cancellationToken);
+        return Ok(result);
     }
 
     [HttpPost("invite")]
