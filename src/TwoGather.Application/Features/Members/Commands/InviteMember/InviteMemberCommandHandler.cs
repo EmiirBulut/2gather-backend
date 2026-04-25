@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Members.DTOs;
@@ -16,6 +17,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
     private readonly IEmailService _emailService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IDateTimeService _dateTimeService;
+    private readonly ILogger<InviteMemberCommandHandler> _logger;
 
     public InviteMemberCommandHandler(
         IListRepository listRepository,
@@ -23,7 +25,8 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
         IUserRepository userRepository,
         IEmailService emailService,
         ICurrentUserService currentUserService,
-        IDateTimeService dateTimeService)
+        IDateTimeService dateTimeService,
+        ILogger<InviteMemberCommandHandler> logger)
     {
         _listRepository = listRepository;
         _inviteRepository = inviteRepository;
@@ -31,6 +34,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
         _emailService = emailService;
         _currentUserService = currentUserService;
         _dateTimeService = dateTimeService;
+        _logger = logger;
     }
 
     public async Task<InviteDto> Handle(InviteMemberCommand request, CancellationToken cancellationToken)
@@ -59,7 +63,14 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
         await _inviteRepository.AddAsync(invite, cancellationToken);
         await _inviteRepository.SaveChangesAsync(cancellationToken);
 
-        await _emailService.SendInviteAsync(request.Email, list.Name, inviter.DisplayName, token, request.Role, cancellationToken);
+        try
+        {
+            await _emailService.SendInviteAsync(request.Email, list.Name, inviter.DisplayName, token, request.Role, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Invite created but email delivery failed for {Email} on list {ListId}", request.Email, request.ListId);
+        }
 
         return new InviteDto(invite.Id, invite.InvitedEmail, invite.Token, invite.ExpiresAt);
     }
