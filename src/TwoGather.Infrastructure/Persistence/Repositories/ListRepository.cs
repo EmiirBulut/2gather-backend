@@ -122,12 +122,20 @@ public class ListRepository : IListRepository
                 TotalItemCount = l.Items.Count(),
                 PurchasedItemCount = l.Items.Count(i => i.Status == ItemStatus.Purchased),
                 TotalEstimated = l.Items
-                    .SelectMany(i => i.Options.Where(o => (o.IsFinal || o.IsSelected) && o.Price.HasValue))
-                    .Sum(o => (decimal?)o.Price) ?? 0,
+                    .Sum(i => i.Options
+                        .Where(o => o.Price.HasValue)
+                        .OrderByDescending(o => o.IsFinal)
+                        .ThenByDescending(o => o.IsSelected)
+                        .Select(o => (decimal?)o.Price)
+                        .FirstOrDefault() ?? 0),
                 TotalSpent = l.Items
                     .Where(i => i.Status == ItemStatus.Purchased)
-                    .SelectMany(i => i.Options.Where(o => (o.IsFinal || o.IsSelected) && o.Price.HasValue))
-                    .Sum(o => (decimal?)o.Price) ?? 0,
+                    .Sum(i => i.Options
+                        .Where(o => o.Price.HasValue)
+                        .OrderByDescending(o => o.IsFinal)
+                        .ThenByDescending(o => o.IsSelected)
+                        .Select(o => (decimal?)o.Price)
+                        .FirstOrDefault() ?? 0),
                 CategorySummaries = l.Items
                     .GroupBy(i => new { i.CategoryId, i.Category.Name, i.Category.RoomLabel })
                     .Select(g => new CategorySummaryDto
