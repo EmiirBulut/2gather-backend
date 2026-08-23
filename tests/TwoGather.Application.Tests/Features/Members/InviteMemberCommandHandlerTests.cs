@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Moq;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Members.Commands.InviteMember;
@@ -15,6 +16,7 @@ public class InviteMemberCommandHandlerTests
     private readonly Mock<IEmailService> _emailService = new();
     private readonly Mock<ICurrentUserService> _currentUser = new();
     private readonly Mock<IDateTimeService> _dateTime = new();
+    private readonly Mock<ILogger<InviteMemberCommandHandler>> _logger = new();
 
     private readonly Guid _userId = Guid.NewGuid();
     private readonly Guid _listId = Guid.NewGuid();
@@ -26,7 +28,8 @@ public class InviteMemberCommandHandlerTests
         _userRepo.Object,
         _emailService.Object,
         _currentUser.Object,
-        _dateTime.Object);
+        _dateTime.Object,
+        _logger.Object);
 
     private Domain.Entities.List MakeList(IEnumerable<ListMember> members) => new()
     {
