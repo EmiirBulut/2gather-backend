@@ -1,7 +1,15 @@
 # syntax=docker/dockerfile:1
 
+# Pinned to linux/amd64 (Render's runtime architecture) on every stage so the
+# build is deterministic regardless of the host machine building it — without
+# this, a build run on an Apple Silicon machine defaults to arm64 for the base
+# images while the migration bundle below is explicitly built for linux-x64,
+# producing a broken image (verified: the bundle fails to run under an arm64
+# final image with "failed to open elf at /lib64/ld-linux-x86-64.so.2").
+ARG TARGET_PLATFORM=linux/amd64
+
 # ── build: restore + publish the API ────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$TARGET_PLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy project files first so restore is cached across builds that only change source.
@@ -34,7 +42,7 @@ RUN dotnet ef migrations bundle \
     -o /app/bundle/efbundle
 
 # ── final: runtime-only image ────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM --platform=$TARGET_PLATFORM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 ENV ASPNETCORE_ENVIRONMENT=Production
 
