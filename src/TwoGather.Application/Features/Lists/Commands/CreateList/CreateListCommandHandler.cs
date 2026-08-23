@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Features.Categories.Common;
 using TwoGather.Application.Features.Lists.DTOs;
 using TwoGather.Domain.Enums;
+using CategoryEntity = TwoGather.Domain.Entities.Category;
 using ListEntity = TwoGather.Domain.Entities.List;
 using ListMemberEntity = TwoGather.Domain.Entities.ListMember;
 
@@ -11,17 +13,20 @@ namespace TwoGather.Application.Features.Lists.Commands.CreateList;
 public class CreateListCommandHandler : IRequestHandler<CreateListCommand, ListDto>
 {
     private readonly IListRepository _listRepository;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IDateTimeService _dateTimeService;
     private readonly ILogger<CreateListCommandHandler> _logger;
 
     public CreateListCommandHandler(
         IListRepository listRepository,
+        ICategoryRepository categoryRepository,
         ICurrentUserService currentUserService,
         IDateTimeService dateTimeService,
         ILogger<CreateListCommandHandler> logger)
     {
         _listRepository = listRepository;
+        _categoryRepository = categoryRepository;
         _currentUserService = currentUserService;
         _dateTimeService = dateTimeService;
         _logger = logger;
@@ -50,9 +55,22 @@ public class CreateListCommandHandler : IRequestHandler<CreateListCommand, ListD
 
         await _listRepository.AddAsync(list, cancellationToken);
         await _listRepository.AddMemberAsync(ownerMember, cancellationToken);
+
+        foreach (var categoryDefault in CategoryTemplates.GetDefaultsFor(request.Template))
+        {
+            await _categoryRepository.AddAsync(new CategoryEntity
+            {
+                Id = Guid.NewGuid(),
+                ListId = list.Id,
+                Name = categoryDefault.Name,
+                RoomLabel = categoryDefault.RoomLabel,
+                IsSystem = false
+            }, cancellationToken);
+        }
+
         await _listRepository.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("List {ListId} created by user {UserId}", list.Id, _currentUserService.UserId);
+        _logger.LogInformation("List {ListId} created by user {UserId} with template {Template}", list.Id, _currentUserService.UserId, request.Template);
 
         return new ListDto(list.Id, list.Name, list.OwnerId, list.CreatedAt, 1);
     }

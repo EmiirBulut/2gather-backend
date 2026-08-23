@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TwoGather.Application.Features.Categories.Commands.CreateCustomCategory;
+using TwoGather.Application.Features.Categories.Commands.UpdateCategory;
 using TwoGather.Application.Features.Categories.DTOs;
 using TwoGather.Application.Features.Categories.Queries.GetCategories;
 
@@ -36,6 +37,17 @@ public class CategoriesController : ControllerBase
         var result = await _mediator.Send(new CreateCustomCategoryCommand(listId, request.Name, request.RoomLabel), cancellationToken);
         return Ok(result);
     }
+
+    [HttpPut("api/categories/{categoryId:guid}")]
+    public async Task<ActionResult<CategoryDto>> UpdateCategory(
+        Guid categoryId,
+        [FromBody] UpdateCategoryRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new UpdateCategoryCommand(categoryId, request.Name, request.RoomLabel), cancellationToken);
+        return Ok(result);
+    }
 }
 
 public record CreateCustomCategoryRequest(string Name, string RoomLabel);
+public record UpdateCategoryRequest(string Name, string RoomLabel);
