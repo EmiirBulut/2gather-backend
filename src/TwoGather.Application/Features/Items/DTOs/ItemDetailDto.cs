@@ -11,6 +11,7 @@ public class ItemDetailDto
     public string? PlanningNote { get; set; }
     public ItemStatus Status { get; set; }
     public DateTime? PurchasedAt { get; set; }
+    public Guid? PurchasedOptionId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public Guid CategoryId { get; set; }

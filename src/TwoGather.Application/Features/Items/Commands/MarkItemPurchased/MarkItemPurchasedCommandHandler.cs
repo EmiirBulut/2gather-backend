@@ -79,9 +79,21 @@ public class MarkItemPurchasedCommandHandler : IRequestHandler<MarkItemPurchased
         if (purchaserIds.Any(id => !memberIds.Contains(id)))
             throw new DomainException("Satın alan kişiler listenin üyesi olmalıdır.");
 
+        var options = await _optionRepository.GetByItemIdAsync(item.Id, cancellationToken);
+        if (request.PurchasedOptionId is { } purchasedOptionId)
+        {
+            if (options.All(o => o.Id != purchasedOptionId))
+                throw new DomainException("Seçilen seçenek bu ürüne ait değil.");
+        }
+        else if (options.Count > 0)
+        {
+            throw new DomainException("Satın alınan seçeneği seçin.");
+        }
+
         var purchasedAt = _dateTimeService.UtcNow;
         item.Status = ItemStatus.Purchased;
         item.PurchasedAt = purchasedAt;
+        item.PurchasedOptionId = request.PurchasedOptionId;
         item.UpdatedAt = purchasedAt;
 
         await _itemRepository.UpdateAsync(item, cancellationToken);

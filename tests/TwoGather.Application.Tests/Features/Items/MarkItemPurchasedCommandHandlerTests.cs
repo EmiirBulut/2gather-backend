@@ -53,7 +53,7 @@ public class MarkItemPurchasedCommandHandlerTests
     };
 
     private MarkItemPurchasedCommand Command(Guid itemId, params Guid[] purchaserIds)
-        => new(itemId, purchaserIds.Length > 0 ? purchaserIds : new[] { _userId });
+        => new(itemId, purchaserIds.Length > 0 ? purchaserIds : new[] { _userId }, null);
 
     public MarkItemPurchasedCommandHandlerTests()
     {
@@ -68,6 +68,9 @@ public class MarkItemPurchasedCommandHandlerTests
         });
         _currentUser.Setup(s => s.UserId).Returns(_userId);
         _dateTime.Setup(s => s.UtcNow).Returns(_now);
+        // Default: items have no options (so no purchased option is required)
+        _optionRepo.Setup(r => r.GetByItemIdAsync(It.IsAny<Guid>(), default))
+            .ReturnsAsync(new List<ItemOption>());
         // Default: no final option on any item
         _optionRepo.Setup(r => r.GetCurrentFinalOptionForItemAsync(It.IsAny<Guid>(), default))
             .ReturnsAsync((ItemOption?)null);
@@ -199,8 +202,49 @@ public class MarkItemPurchasedCommandHandlerTests
     public void Validator_EmptyPurchasers_Fails()
     {
         var result = new MarkItemPurchasedCommandValidator()
-            .Validate(new MarkItemPurchasedCommand(Guid.NewGuid(), Array.Empty<Guid>()));
+            .Validate(new MarkItemPurchasedCommand(Guid.NewGuid(), Array.Empty<Guid>(), null));
 
         Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task Handle_ItemWithOptions_RequiresPurchasedOption()
+    {
+        var item = MakeItem();
+        _itemRepo.Setup(r => r.GetByIdAsync(item.Id, default)).ReturnsAsync(item);
+        _listRepo.Setup(r => r.GetMemberAsync(_listId, _userId, default)).ReturnsAsync(MakeMember(MemberRole.Owner));
+        _optionRepo.Setup(r => r.GetByItemIdAsync(item.Id, default))
+            .ReturnsAsync(new List<ItemOption> { new() { Id = Guid.NewGuid(), ItemId = item.Id, Title = "A" } });
+
+        await Assert.ThrowsAsync<DomainException>(() => CreateHandler().Handle(Command(item.Id), default));
+        Assert.Equal(ItemStatus.Pending, item.Status);
+    }
+
+    [Fact]
+    public async Task Handle_OptionOfAnotherItem_IsRejected()
+    {
+        var item = MakeItem();
+        _itemRepo.Setup(r => r.GetByIdAsync(item.Id, default)).ReturnsAsync(item);
+        _listRepo.Setup(r => r.GetMemberAsync(_listId, _userId, default)).ReturnsAsync(MakeMember(MemberRole.Owner));
+        _optionRepo.Setup(r => r.GetByItemIdAsync(item.Id, default))
+            .ReturnsAsync(new List<ItemOption> { new() { Id = Guid.NewGuid(), ItemId = item.Id, Title = "A" } });
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            CreateHandler().Handle(new MarkItemPurchasedCommand(item.Id, new[] { _userId }, Guid.NewGuid()), default));
+    }
+
+    [Fact]
+    public async Task Handle_WithPurchasedOption_StoresIt()
+    {
+        var item = MakeItem();
+        var option = new ItemOption { Id = Guid.NewGuid(), ItemId = item.Id, Title = "A" };
+        _itemRepo.Setup(r => r.GetByIdAsync(item.Id, default)).ReturnsAsync(item);
+        _listRepo.Setup(r => r.GetMemberAsync(_listId, _userId, default)).ReturnsAsync(MakeMember(MemberRole.Owner));
+        _optionRepo.Setup(r => r.GetByItemIdAsync(item.Id, default)).ReturnsAsync(new List<ItemOption> { option });
+
+        await CreateHandler().Handle(new MarkItemPurchasedCommand(item.Id, new[] { _userId }, option.Id), default);
+
+        Assert.Equal(ItemStatus.Purchased, item.Status);
+        Assert.Equal(option.Id, item.PurchasedOptionId);
     }
 }

@@ -24,8 +24,12 @@ public class ReportRepository : IReportRepository
         string CategoryName,
         ItemStatus Status,
         DateTime? PurchasedAt,
+        Guid? PurchasedOptionId,
         List<OptionPriceInfo> Options,
-        List<MemberAvatarDto> Purchasers);
+        List<MemberAvatarDto> Purchasers)
+    {
+        public bool IsLegacyPurchase => EffectiveOption.IsLegacyPurchase(Status, PurchasedOptionId);
+    }
 
     // Prices are resolved in memory so every report uses the same EffectiveOption rule.
     private async Task<List<ItemPriceRow>> GetItemPriceRowsAsync(Guid listId, CancellationToken cancellationToken)
@@ -40,8 +44,9 @@ public class ReportRepository : IReportRepository
                 i.Category!.Name,
                 i.Status,
                 i.PurchasedAt,
+                i.PurchasedOptionId,
                 i.Options
-                    .Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected))
+                    .Select(o => new OptionPriceInfo(o.Id, o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected, o.Id == i.PurchasedOptionId))
                     .ToList(),
                 i.Purchasers
                     .OrderBy(p => p.User.DisplayName)
@@ -63,8 +68,8 @@ public class ReportRepository : IReportRepository
         var purchasedCount = items.Count(i => i.Status == ItemStatus.Purchased);
         var totalSpent = items
             .Where(i => i.Status == ItemStatus.Purchased)
-            .Sum(i => EffectiveOption.PriceOf(i.Options));
-        var estimatedTotal = items.Sum(i => EffectiveOption.PriceOf(i.Options));
+            .Sum(i => EffectiveOption.PriceOf(i.Options, i.IsLegacyPurchase));
+        var estimatedTotal = items.Sum(i => EffectiveOption.PriceOf(i.Options, i.IsLegacyPurchase));
 
         var budgetUsagePercentage = estimatedTotal > 0
             ? Math.Round(totalSpent / estimatedTotal * 100, 1)
@@ -99,7 +104,7 @@ public class ReportRepository : IReportRepository
                     total,
                     g.Count(r => r.Status == ItemStatus.Pending),
                     purchased,
-                    g.Where(r => r.Status == ItemStatus.Purchased).Sum(r => EffectiveOption.PriceOf(r.Options)),
+                    g.Where(r => r.Status == ItemStatus.Purchased).Sum(r => EffectiveOption.PriceOf(r.Options, r.IsLegacyPurchase)),
                     total > 0 ? Math.Round((decimal)purchased / total * 100, 1) : 0
                 );
             })
@@ -114,7 +119,7 @@ public class ReportRepository : IReportRepository
         return rows
             .Select(r =>
             {
-                var effective = EffectiveOption.Pick(r.Options);
+                var effective = EffectiveOption.Pick(r.Options, r.IsLegacyPurchase);
                 return new ReportItemDto
                 {
                     Id = r.Id,
@@ -142,7 +147,7 @@ public class ReportRepository : IReportRepository
 
         return rows
             .Where(r => r.Status == ItemStatus.Purchased && r.PurchasedAt.HasValue)
-            .Select(r => new { Row = r, Effective = EffectiveOption.Pick(r.Options) })
+            .Select(r => new { Row = r, Effective = EffectiveOption.Pick(r.Options, r.IsLegacyPurchase) })
             .Where(x => x.Effective is not null)
             .GroupBy(x => x.Row.CategoryName)
             .Select(g => new SpendingBreakdownDto(

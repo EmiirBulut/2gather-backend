@@ -46,6 +46,7 @@ public class UndoPurchaseCommandHandler : IRequestHandler<UndoPurchaseCommand>
 
         item.Status = ItemStatus.Pending;
         item.PurchasedAt = null;
+        item.PurchasedOptionId = null;
         item.UpdatedAt = _dateTimeService.UtcNow;
 
         await _itemRepository.UpdateAsync(item, cancellationToken);

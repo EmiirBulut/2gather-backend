@@ -19,6 +19,6 @@ public class VoidCommandPipelineTests
         var mediator = provider.GetRequiredService<IMediator>();
 
         await Assert.ThrowsAsync<ValidationException>(() =>
-            mediator.Send(new MarkItemPurchasedCommand(Guid.NewGuid(), Array.Empty<Guid>())));
+            mediator.Send(new MarkItemPurchasedCommand(Guid.NewGuid(), Array.Empty<Guid>(), null)));
     }
 }

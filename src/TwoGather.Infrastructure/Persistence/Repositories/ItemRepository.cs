@@ -44,12 +44,16 @@ public class ItemRepository : IItemRepository
             {
                 Item = i,
                 Options = i.Options
-                    .Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected))
+                    .Select(o => new OptionPriceInfo(o.Id, o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected, o.Id == i.PurchasedOptionId))
                     .ToList()
             })
             .ToListAsync(cancellationToken);
 
-        return rows.Select(r => (r.Item, r.Options.Count, EffectiveOption.Pick(r.Options)?.Price)).ToList();
+        return rows.Select(r => (
+            r.Item,
+            r.Options.Count,
+            EffectiveOption.Pick(r.Options, EffectiveOption.IsLegacyPurchase(r.Item.Status, r.Item.PurchasedOptionId))?.Price
+        )).ToList();
     }
 
     public async Task<IReadOnlyList<MemberAvatarDto>> GetPurchasersAsync(Guid itemId, CancellationToken cancellationToken = default)

@@ -38,6 +38,11 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
             .HasForeignKey(i => i.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Plain column, deliberately without a foreign key: Items -> ItemOptions already
+        // cascades, and a SET NULL constraint back to ItemOptions would form a delete cycle.
+        // Options of a purchased item are locked, so the reference cannot dangle.
+        builder.Property(i => i.PurchasedOptionId);
+
         builder.HasMany(i => i.Options)
             .WithOne(o => o.Item)
             .HasForeignKey(o => o.ItemId)

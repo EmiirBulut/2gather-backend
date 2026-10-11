@@ -126,6 +126,9 @@ namespace TwoGather.Infrastructure.Migrations
                     b.Property<DateTime?>("PurchasedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("PurchasedOptionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");

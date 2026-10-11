@@ -10,6 +10,8 @@ public class Item
     public string Name { get; set; } = string.Empty;
     public ItemStatus Status { get; set; }
     public DateTime? PurchasedAt { get; set; }
+    // The option that was actually bought; null for pending items and older purchases
+    public Guid? PurchasedOptionId { get; set; }
     public string? ImageUrl { get; set; }
     public string? PlanningNote { get; set; }
     public DateTime CreatedAt { get; set; }

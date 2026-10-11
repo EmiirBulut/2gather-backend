@@ -10,5 +10,6 @@ public class MarkItemPurchasedCommandValidator : AbstractValidator<MarkItemPurch
         RuleFor(x => x.PurchaserUserIds)
             .NotEmpty().WithMessage("En az bir satın alan kişi seçilmelidir.");
         RuleForEach(x => x.PurchaserUserIds).NotEmpty();
+        RuleFor(x => x.PurchasedOptionId).NotEqual(Guid.Empty).When(x => x.PurchasedOptionId.HasValue);
     }
 }

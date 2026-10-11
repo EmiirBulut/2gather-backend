@@ -71,7 +71,7 @@ public class ItemsController : ControllerBase
         [FromBody] MarkPurchasedRequest request,
         CancellationToken cancellationToken)
     {
-        await _mediator.Send(new MarkItemPurchasedCommand(itemId, request.PurchaserUserIds), cancellationToken);
+        await _mediator.Send(new MarkItemPurchasedCommand(itemId, request.PurchaserUserIds, request.PurchasedOptionId), cancellationToken);
         return NoContent();
     }
 
@@ -121,5 +121,5 @@ public class ItemsController : ControllerBase
 
 public record CreateItemRequest(Guid CategoryId, string Name, string? ImageUrl, string? PlanningNote);
 public record UploadImageResponse(string ImageUrl);
-public record MarkPurchasedRequest(IReadOnlyList<Guid> PurchaserUserIds);
+public record MarkPurchasedRequest(IReadOnlyList<Guid> PurchaserUserIds, Guid? PurchasedOptionId);
 public record UpdateItemRequest(string Name, Guid CategoryId, string? ImageUrl, string? PlanningNote);

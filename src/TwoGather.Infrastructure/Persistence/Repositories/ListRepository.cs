@@ -152,16 +152,18 @@ public class ListRepository : IListRepository
             .Select(i => new
             {
                 i.Status,
+                i.PurchasedOptionId,
                 Options = i.Options
-                    .Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected))
+                    .Select(o => new OptionPriceInfo(o.Id, o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected, o.Id == i.PurchasedOptionId))
                     .ToList()
             })
             .ToListAsync(cancellationToken);
 
-        var totalEstimated = itemPrices.Sum(i => EffectiveOption.PriceOf(i.Options));
+        var totalEstimated = itemPrices.Sum(i =>
+            EffectiveOption.PriceOf(i.Options, EffectiveOption.IsLegacyPurchase(i.Status, i.PurchasedOptionId)));
         var totalSpent = itemPrices
             .Where(i => i.Status == ItemStatus.Purchased)
-            .Sum(i => EffectiveOption.PriceOf(i.Options));
+            .Sum(i => EffectiveOption.PriceOf(i.Options, EffectiveOption.IsLegacyPurchase(i.Status, i.PurchasedOptionId)));
 
         var pendingClaims = await _dbContext.OptionClaims.AsNoTracking()
             .Where(c => c.Status == ClaimStatus.Pending && c.Option.Item.ListId == listId)

@@ -59,6 +59,7 @@ public class GetItemDetailQueryHandler : IRequestHandler<GetItemDetailQuery, Ite
             PlanningNote = item.PlanningNote,
             Status = item.Status,
             PurchasedAt = item.PurchasedAt,
+            PurchasedOptionId = item.PurchasedOptionId,
             CreatedAt = item.CreatedAt,
             UpdatedAt = item.UpdatedAt,
             CategoryId = item.CategoryId,
