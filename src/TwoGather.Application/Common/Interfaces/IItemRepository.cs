@@ -13,6 +13,7 @@ public interface IItemRepository
     Task<IReadOnlyList<MemberAvatarDto>> GetPurchasersAsync(Guid itemId, CancellationToken cancellationToken = default);
     Task AddAsync(Item item, CancellationToken cancellationToken = default);
     Task AddPurchasersAsync(IEnumerable<ItemPurchaser> purchasers, CancellationToken cancellationToken = default);
+    Task RemovePurchasersAsync(Guid itemId, CancellationToken cancellationToken = default);
     Task UpdateAsync(Item item, CancellationToken cancellationToken = default);
     Task DeleteAsync(Item item, CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

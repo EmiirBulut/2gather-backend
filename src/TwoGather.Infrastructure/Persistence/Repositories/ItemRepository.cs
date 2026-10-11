@@ -70,6 +70,14 @@ public class ItemRepository : IItemRepository
     public async Task AddPurchasersAsync(IEnumerable<ItemPurchaser> purchasers, CancellationToken cancellationToken = default)
         => await _dbContext.ItemPurchasers.AddRangeAsync(purchasers, cancellationToken);
 
+    public async Task RemovePurchasersAsync(Guid itemId, CancellationToken cancellationToken = default)
+    {
+        var purchasers = await _dbContext.ItemPurchasers
+            .Where(p => p.ItemId == itemId)
+            .ToListAsync(cancellationToken);
+        _dbContext.ItemPurchasers.RemoveRange(purchasers);
+    }
+
     public Task UpdateAsync(Item item, CancellationToken cancellationToken = default)
     {
         _dbContext.Items.Update(item);

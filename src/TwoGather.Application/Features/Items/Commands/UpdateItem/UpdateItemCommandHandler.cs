@@ -37,6 +37,7 @@ public class UpdateItemCommandHandler : IRequestHandler<UpdateItemCommand, ItemD
 
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        PurchasedItemGuard.EnsureNotPurchased(item);
 
         item.Name = request.Name;
         item.CategoryId = request.CategoryId;

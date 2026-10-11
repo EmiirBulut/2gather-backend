@@ -33,6 +33,7 @@ public class UpdateOptionCommandHandler : IRequestHandler<UpdateOptionCommand, I
 
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        PurchasedItemGuard.EnsureNotPurchased(option.Item);
 
         if (option.IsFinal && member!.Role != MemberRole.Owner)
             throw new ForbiddenException();

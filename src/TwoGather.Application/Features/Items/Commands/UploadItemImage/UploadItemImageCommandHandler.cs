@@ -42,6 +42,7 @@ public class UploadItemImageCommandHandler : IRequestHandler<UploadItemImageComm
 
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        PurchasedItemGuard.EnsureNotPurchased(item);
 
         var imageUrl = await _fileStorageService.UploadImageAsync(
             request.ImageStream, request.ContentType, $"items/{item.Id}", cancellationToken);

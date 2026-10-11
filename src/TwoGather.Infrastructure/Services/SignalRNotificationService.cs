@@ -35,6 +35,9 @@ public class SignalRNotificationService<THub> : INotificationService where THub 
     public Task InviteStatusChangedAsync(Guid listId, Guid inviteId, CancellationToken cancellationToken = default)
         => _hubContext.Clients.Group($"list-{listId}").SendAsync("InviteStatusChanged", new { listId, inviteId }, cancellationToken);
 
+    public Task ItemPurchaseUndoneAsync(Guid listId, Guid itemId, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("ItemPurchaseUndone", new { listId, itemId }, cancellationToken);
+
     public Task ItemImageUpdatedAsync(Guid listId, Guid itemId, string imageUrl, CancellationToken cancellationToken = default)
         => _hubContext.Clients.Group($"list-{listId}").SendAsync("ItemImageUpdated", new { listId, itemId, imageUrl }, cancellationToken);
 

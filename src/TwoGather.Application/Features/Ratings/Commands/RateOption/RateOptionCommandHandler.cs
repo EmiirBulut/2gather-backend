@@ -43,6 +43,7 @@ public class RateOptionCommandHandler : IRequestHandler<RateOptionCommand, Optio
 
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor, MemberRole.Viewer);
+        PurchasedItemGuard.EnsureNotPurchased(option.Item);
 
         var existing = await _ratingRepository.GetByOptionAndUserAsync(request.OptionId, _currentUserService.UserId, cancellationToken);
 

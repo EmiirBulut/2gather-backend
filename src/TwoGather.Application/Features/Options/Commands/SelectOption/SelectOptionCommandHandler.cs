@@ -39,6 +39,7 @@ public class SelectOptionCommandHandler : IRequestHandler<SelectOptionCommand, I
 
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        PurchasedItemGuard.EnsureNotPurchased(item);
 
         var siblings = await _optionRepository.GetByItemIdAsync(option.ItemId, cancellationToken);
 

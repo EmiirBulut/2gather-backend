@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TwoGather.Application.Features.Items.Commands.CreateItem;
 using TwoGather.Application.Features.Items.Commands.DeleteItem;
 using TwoGather.Application.Features.Items.Commands.MarkItemPurchased;
+using TwoGather.Application.Features.Items.Commands.UndoPurchase;
 using TwoGather.Application.Features.Items.Commands.UpdateItem;
 using TwoGather.Application.Features.Items.Commands.UploadItemImage;
 using TwoGather.Application.Features.Items.DTOs;
@@ -71,6 +72,13 @@ public class ItemsController : ControllerBase
         CancellationToken cancellationToken)
     {
         await _mediator.Send(new MarkItemPurchasedCommand(itemId, request.PurchaserUserIds), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("api/items/{itemId:guid}/purchase")]
+    public async Task<IActionResult> UndoPurchase(Guid itemId, CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new UndoPurchaseCommand(itemId), cancellationToken);
         return NoContent();
     }
 

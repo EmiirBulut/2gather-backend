@@ -39,6 +39,8 @@ public class DeleteItemCommandHandler : IRequestHandler<DeleteItemCommand>
 
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        if (item.Status == ItemStatus.Purchased && member!.Role != MemberRole.Owner)
+            throw new ForbiddenException("Satın alınmış ürünü yalnızca liste sahibi silebilir.");
 
         var listId = item.ListId;
         var itemId = item.Id;

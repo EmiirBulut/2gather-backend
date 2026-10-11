@@ -49,6 +49,7 @@ public class ReviewClaimCommandHandler : IRequestHandler<ReviewClaimCommand, Cla
 
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner);
+        PurchasedItemGuard.EnsureNotPurchased(option.Item);
 
         if (claim.Status != ClaimStatus.Pending)
             throw new DomainException("Yalnızca beklemedeki talepler incelenebilir.");
