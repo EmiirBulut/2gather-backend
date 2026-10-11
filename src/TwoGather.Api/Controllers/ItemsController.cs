@@ -59,9 +59,12 @@ public class ItemsController : ControllerBase
     }
 
     [HttpPatch("api/items/{itemId:guid}/status")]
-    public async Task<IActionResult> MarkPurchased(Guid itemId, CancellationToken cancellationToken)
+    public async Task<IActionResult> MarkPurchased(
+        Guid itemId,
+        [FromBody] MarkPurchasedRequest request,
+        CancellationToken cancellationToken)
     {
-        await _mediator.Send(new MarkItemPurchasedCommand(itemId), cancellationToken);
+        await _mediator.Send(new MarkItemPurchasedCommand(itemId, request.PurchaserUserIds), cancellationToken);
         return NoContent();
     }
 
@@ -102,4 +105,5 @@ public class ItemsController : ControllerBase
 }
 
 public record CreateItemRequest(Guid CategoryId, string Name, string? ImageUrl, string? PlanningNote);
+public record MarkPurchasedRequest(IReadOnlyList<Guid> PurchaserUserIds);
 public record UpdateItemRequest(string Name, Guid CategoryId, string? ImageUrl, string? PlanningNote);

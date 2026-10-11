@@ -17,5 +17,6 @@ public class ItemDetailDto
     public string CategoryName { get; set; } = string.Empty;
     public string RoomLabel { get; set; } = string.Empty;
     public MemberAvatarDto? AssignedTo { get; set; }
+    public List<MemberAvatarDto> Purchasers { get; set; } = new();
     public List<ItemOptionDetailDto> Options { get; set; } = new();
 }

@@ -1,3 +1,4 @@
+using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Domain.Enums;
 
 namespace TwoGather.Application.Features.Reports.DTOs;
@@ -15,4 +16,5 @@ public class ReportItemDto
     public ItemStatus Status { get; set; }
     public DateTime? PurchasedAt { get; set; }
     public int OptionsCount { get; set; }
+    public List<MemberAvatarDto> Purchasers { get; set; } = new();
 }

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Common.Pricing;
+using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Application.Features.Reports.DTOs;
 using TwoGather.Domain.Enums;
 
@@ -23,7 +24,8 @@ public class ReportRepository : IReportRepository
         string CategoryName,
         ItemStatus Status,
         DateTime? PurchasedAt,
-        List<OptionPriceInfo> Options);
+        List<OptionPriceInfo> Options,
+        List<MemberAvatarDto> Purchasers);
 
     // Prices are resolved in memory so every report uses the same EffectiveOption rule.
     private async Task<List<ItemPriceRow>> GetItemPriceRowsAsync(Guid listId, CancellationToken cancellationToken)
@@ -39,6 +41,15 @@ public class ReportRepository : IReportRepository
                 i.PurchasedAt,
                 i.Options
                     .Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected))
+                    .ToList(),
+                i.Purchasers
+                    .OrderBy(p => p.User.DisplayName)
+                    .Select(p => new MemberAvatarDto(
+                        p.UserId,
+                        p.User.DisplayName,
+                        p.User.DisplayName.Length >= 2
+                            ? p.User.DisplayName.Substring(0, 2).ToUpper()
+                            : p.User.DisplayName.ToUpper()))
                     .ToList()))
             .ToListAsync(cancellationToken);
 
@@ -113,6 +124,7 @@ public class ReportRepository : IReportRepository
                     Status = r.Status,
                     PurchasedAt = r.PurchasedAt,
                     OptionsCount = r.Options.Count,
+                    Purchasers = r.Purchasers,
                     SelectedOptionTitle = effective?.Title,
                     EstimatedPrice = effective?.Price,
                     Currency = effective?.Currency

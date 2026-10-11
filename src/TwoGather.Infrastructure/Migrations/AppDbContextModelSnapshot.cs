@@ -205,6 +205,21 @@ namespace TwoGather.Infrastructure.Migrations
                     b.ToTable("ItemOptions");
                 });
 
+            modelBuilder.Entity("TwoGather.Domain.Entities.ItemPurchaser", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ItemId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ItemPurchasers");
+                });
+
             modelBuilder.Entity("TwoGather.Domain.Entities.List", b =>
                 {
                     b.Property<Guid>("Id")
@@ -473,6 +488,25 @@ namespace TwoGather.Infrastructure.Migrations
                     b.Navigation("Item");
                 });
 
+            modelBuilder.Entity("TwoGather.Domain.Entities.ItemPurchaser", b =>
+                {
+                    b.HasOne("TwoGather.Domain.Entities.Item", "Item")
+                        .WithMany("Purchasers")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TwoGather.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TwoGather.Domain.Entities.List", b =>
                 {
                     b.HasOne("TwoGather.Domain.Entities.User", "Owner")
@@ -566,6 +600,8 @@ namespace TwoGather.Infrastructure.Migrations
             modelBuilder.Entity("TwoGather.Domain.Entities.Item", b =>
                 {
                     b.Navigation("Options");
+
+                    b.Navigation("Purchasers");
                 });
 
             modelBuilder.Entity("TwoGather.Domain.Entities.ItemOption", b =>

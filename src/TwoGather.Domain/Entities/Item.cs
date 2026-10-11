@@ -18,4 +18,5 @@ public class Item
     public List List { get; set; } = null!;
     public Category Category { get; set; } = null!;
     public ICollection<ItemOption> Options { get; set; } = new List<ItemOption>();
+    public ICollection<ItemPurchaser> Purchasers { get; set; } = new List<ItemPurchaser>();
 }

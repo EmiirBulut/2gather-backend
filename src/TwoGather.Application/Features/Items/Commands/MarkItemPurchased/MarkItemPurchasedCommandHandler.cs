@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Domain.Entities;
 using TwoGather.Domain.Enums;
 using TwoGather.Domain.Exceptions;
 
@@ -71,12 +72,22 @@ public class MarkItemPurchasedCommandHandler : IRequestHandler<MarkItemPurchased
         if (item.Status == ItemStatus.Purchased)
             throw new DomainException("Item is already marked as purchased.");
 
+        var purchaserIds = request.PurchaserUserIds.Distinct().ToList();
+        var list = await _listRepository.GetByIdWithMembersAsync(item.ListId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Entities.List), item.ListId);
+        var memberIds = list.Members.Select(m => m.UserId).ToHashSet();
+        if (purchaserIds.Any(id => !memberIds.Contains(id)))
+            throw new DomainException("Satın alan kişiler listenin üyesi olmalıdır.");
+
         var purchasedAt = _dateTimeService.UtcNow;
         item.Status = ItemStatus.Purchased;
         item.PurchasedAt = purchasedAt;
         item.UpdatedAt = purchasedAt;
 
         await _itemRepository.UpdateAsync(item, cancellationToken);
+        await _itemRepository.AddPurchasersAsync(
+            purchaserIds.Select(userId => new ItemPurchaser { ItemId = item.Id, UserId = userId }),
+            cancellationToken);
         await _itemRepository.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Item {ItemId} marked as purchased by user {UserId}", item.Id, _currentUserService.UserId);
