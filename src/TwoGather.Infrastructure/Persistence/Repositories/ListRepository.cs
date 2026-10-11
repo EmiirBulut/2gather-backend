@@ -41,6 +41,12 @@ public class ListRepository : IListRepository
     public async Task AddAsync(List list, CancellationToken cancellationToken = default)
         => await _dbContext.Lists.AddAsync(list, cancellationToken);
 
+    public Task UpdateAsync(List list, CancellationToken cancellationToken = default)
+    {
+        _dbContext.Lists.Update(list);
+        return Task.CompletedTask;
+    }
+
     public Task DeleteAsync(List list, CancellationToken cancellationToken = default)
     {
         _dbContext.Lists.Remove(list);

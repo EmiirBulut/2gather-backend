@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TwoGather.Application.Features.Lists.Commands.CreateList;
 using TwoGather.Application.Features.Lists.Commands.DeleteList;
+using TwoGather.Application.Features.Lists.Commands.RenameList;
 using TwoGather.Application.Features.Lists.DTOs;
 using TwoGather.Application.Features.Lists.Queries.GetListById;
 using TwoGather.Application.Features.Lists.Queries.GetUserLists;
@@ -46,6 +47,16 @@ public class ListsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPatch("{listId:guid}")]
+    public async Task<IActionResult> RenameList(
+        Guid listId,
+        [FromBody] RenameListRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new RenameListCommand(listId, request.Name), cancellationToken);
+        return NoContent();
+    }
+
     [HttpDelete("{listId:guid}")]
     public async Task<IActionResult> DeleteList(Guid listId, CancellationToken cancellationToken)
     {
@@ -60,3 +71,5 @@ public class ListsController : ControllerBase
         return Ok(result);
     }
 }
+
+public record RenameListRequest(string Name);
