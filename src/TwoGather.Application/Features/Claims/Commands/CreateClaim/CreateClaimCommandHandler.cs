@@ -74,7 +74,7 @@ public class CreateClaimCommandHandler : IRequestHandler<CreateClaimCommand, Cla
         var user = await _userRepository.GetByIdAsync(_currentUserService.UserId, cancellationToken);
         var dto = new ClaimDto(claim.Id, claim.UserId, user?.DisplayName ?? string.Empty, claim.Percentage, claim.Status, claim.CreatedAt);
 
-        await _notificationService.ClaimCreatedAsync(option.Item.ListId, request.OptionId, dto, cancellationToken);
+        await _notificationService.ClaimCreatedAsync(option.Item.ListId, option.ItemId, request.OptionId, dto, cancellationToken);
 
         var owner = await _listRepository.GetOwnerAsync(option.Item.ListId, cancellationToken);
         if (owner is not null)

@@ -13,5 +13,7 @@ public record ItemDto(
     string? PlanningNote,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    int OptionsCount
+    int OptionsCount,
+    // Price that represents the item in budgets: final > selected > most expensive option
+    decimal? EffectivePrice
 );

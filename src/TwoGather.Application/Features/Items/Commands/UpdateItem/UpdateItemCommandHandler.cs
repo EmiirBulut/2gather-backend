@@ -1,4 +1,5 @@
 using MediatR;
+using TwoGather.Application.Common.Pricing;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Items.DTOs;
@@ -46,7 +47,8 @@ public class UpdateItemCommandHandler : IRequestHandler<UpdateItemCommand, ItemD
         await _itemRepository.UpdateAsync(item, cancellationToken);
         await _itemRepository.SaveChangesAsync(cancellationToken);
 
-        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.ImageUrl, item.PlanningNote, item.CreatedAt, item.UpdatedAt, item.Options.Count);
+        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.ImageUrl, item.PlanningNote, item.CreatedAt, item.UpdatedAt, item.Options.Count,
+            EffectiveOption.Pick(item.Options.Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected)))?.Price);
 
         await _notificationService.ItemUpdatedAsync(item.ListId, dto, cancellationToken);
 

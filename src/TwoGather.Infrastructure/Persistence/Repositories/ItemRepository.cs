@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Common.Pricing;
 using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Domain.Entities;
 using TwoGather.Domain.Enums;
@@ -29,7 +30,7 @@ public class ItemRepository : IItemRepository
             .Include(i => i.Category)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<(Item item, int optionsCount)>> GetByListIdAsync(Guid listId, ItemStatus? status, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<(Item item, int optionsCount, decimal? effectivePrice)>> GetByListIdAsync(Guid listId, ItemStatus? status, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Items.AsNoTracking()
             .Where(i => i.ListId == listId);
@@ -42,11 +43,13 @@ public class ItemRepository : IItemRepository
             .Select(i => new
             {
                 Item = i,
-                OptionsCount = _dbContext.ItemOptions.Count(o => o.ItemId == i.Id)
+                Options = i.Options
+                    .Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected))
+                    .ToList()
             })
             .ToListAsync(cancellationToken);
 
-        return rows.Select(r => (r.Item, r.OptionsCount)).ToList();
+        return rows.Select(r => (r.Item, r.Options.Count, EffectiveOption.Pick(r.Options)?.Price)).ToList();
     }
 
     public async Task<IReadOnlyList<MemberAvatarDto>> GetPurchasersAsync(Guid itemId, CancellationToken cancellationToken = default)

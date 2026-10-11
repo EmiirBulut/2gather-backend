@@ -41,7 +41,8 @@ public class GetItemsByListQueryHandler : IRequestHandler<GetItemsByListQuery, I
             x.item.PlanningNote,
             x.item.CreatedAt,
             x.item.UpdatedAt,
-            x.optionsCount
+            x.optionsCount,
+            x.effectivePrice
         )).ToList();
     }
 }

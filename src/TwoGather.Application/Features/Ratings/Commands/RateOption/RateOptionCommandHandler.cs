@@ -68,7 +68,7 @@ public class RateOptionCommandHandler : IRequestHandler<RateOptionCommand, Optio
             await _ratingRepository.SaveChangesAsync(cancellationToken);
         }
 
-        await _notificationService.OptionRatingUpdatedAsync(option.Item.ListId, request.OptionId, cancellationToken);
+        await _notificationService.OptionRatingUpdatedAsync(option.Item.ListId, option.ItemId, request.OptionId, cancellationToken);
 
         return await BuildRatingDto(request.OptionId, _currentUserService.UserId, cancellationToken);
     }

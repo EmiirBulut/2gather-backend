@@ -53,8 +53,8 @@ public class SignalRNotificationService<THub> : INotificationService where THub 
     public Task MemberRemovedAsync(Guid listId, Guid userId, CancellationToken cancellationToken = default)
         => _hubContext.Clients.Group($"list-{listId}").SendAsync("MemberRemoved", new { listId, userId }, cancellationToken);
 
-    public Task OptionRatingUpdatedAsync(Guid listId, Guid optionId, CancellationToken cancellationToken = default)
-        => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionRatingUpdated", new { listId, optionId }, cancellationToken);
+    public Task OptionRatingUpdatedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionRatingUpdated", new { listId, itemId, optionId }, cancellationToken);
 
     public Task OptionFinalizedAsync(Guid listId, Guid itemId, Guid finalOptionId, CancellationToken cancellationToken = default)
         => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionFinalized", new { listId, itemId, finalOptionId }, cancellationToken);
@@ -62,11 +62,11 @@ public class SignalRNotificationService<THub> : INotificationService where THub 
     public Task OptionFinalRemovedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default)
         => _hubContext.Clients.Group($"list-{listId}").SendAsync("OptionFinalRemoved", new { listId, itemId, optionId }, cancellationToken);
 
-    public Task ClaimCreatedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default)
-        => _hubContext.Clients.Group($"list-{listId}").SendAsync("ClaimCreated", new { listId, optionId, claim }, cancellationToken);
+    public Task ClaimCreatedAsync(Guid listId, Guid itemId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("ClaimCreated", new { listId, itemId, optionId, claim }, cancellationToken);
 
-    public Task ClaimReviewedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default)
-        => _hubContext.Clients.Group($"list-{listId}").SendAsync("ClaimReviewed", new { listId, optionId, claim }, cancellationToken);
+    public Task ClaimReviewedAsync(Guid listId, Guid itemId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default)
+        => _hubContext.Clients.Group($"list-{listId}").SendAsync("ClaimReviewed", new { listId, itemId, optionId, claim }, cancellationToken);
 
     public Task ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken cancellationToken = default)
         => _hubContext.Clients.User(ownerUserId.ToString()).SendAsync("ClaimPending", new { listId, claim }, cancellationToken);
