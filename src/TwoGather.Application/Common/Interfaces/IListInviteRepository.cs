@@ -6,6 +6,7 @@ public interface IListInviteRepository
 {
     Task<ListInvite?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
     Task<ListInvite?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ListInvite?> GetByProviderMessageIdAsync(string providerMessageId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ListInvite>> GetByListIdAsync(Guid listId, CancellationToken cancellationToken = default);
     Task<int> GetPendingInvitesCountAsync(Guid listId, CancellationToken cancellationToken = default);
     Task AddAsync(ListInvite invite, CancellationToken cancellationToken = default);

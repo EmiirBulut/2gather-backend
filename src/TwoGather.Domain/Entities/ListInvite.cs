@@ -12,6 +12,11 @@ public class ListInvite
     public DateTime ExpiresAt { get; set; }
     public DateTime? AcceptedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public InviteEmailStatus EmailStatus { get; set; }
+    public DateTime? LastSentAt { get; set; }
+    public int SendCount { get; set; }
+    public string? ProviderMessageId { get; set; }
+    public DateTime? DeliveredAt { get; set; }
 
     public List List { get; set; } = null!;
 }

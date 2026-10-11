@@ -10,4 +10,8 @@ public class PendingInviteDto
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool IsExpired { get; set; }
+    public InviteEmailStatus EmailStatus { get; set; }
+    public DateTime? LastSentAt { get; set; }
+    public int SendCount { get; set; }
+    public DateTime? DeliveredAt { get; set; }
 }

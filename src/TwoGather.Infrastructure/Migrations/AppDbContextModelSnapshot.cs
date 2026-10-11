@@ -256,6 +256,14 @@ namespace TwoGather.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmailStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -264,12 +272,22 @@ namespace TwoGather.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<DateTime?>("LastSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("ListId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("SendCount")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -279,6 +297,8 @@ namespace TwoGather.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ListId");
+
+                    b.HasIndex("ProviderMessageId");
 
                     b.HasIndex("Token")
                         .IsUnique();

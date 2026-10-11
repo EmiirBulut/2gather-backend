@@ -41,7 +41,11 @@ public class GetPendingInvitesQueryHandler : IRequestHandler<GetPendingInvitesQu
             Role = i.Role,
             ExpiresAt = i.ExpiresAt,
             CreatedAt = i.CreatedAt,
-            IsExpired = i.ExpiresAt < now
+            IsExpired = i.ExpiresAt < now,
+            EmailStatus = i.EmailStatus,
+            LastSentAt = i.LastSentAt,
+            SendCount = i.SendCount,
+            DeliveredAt = i.DeliveredAt
         }).ToList();
     }
 }

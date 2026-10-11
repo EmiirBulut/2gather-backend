@@ -10,6 +10,7 @@ public interface INotificationService
 {
     Task ItemAddedAsync(Guid listId, ItemDto item, CancellationToken cancellationToken = default);
     Task ItemUpdatedAsync(Guid listId, ItemDto item, CancellationToken cancellationToken = default);
+    Task InviteStatusChangedAsync(Guid listId, Guid inviteId, CancellationToken cancellationToken = default);
     Task ItemPurchasedAsync(Guid listId, Guid itemId, DateTime purchasedAt, CancellationToken cancellationToken = default);
     Task ItemDeletedAsync(Guid listId, Guid itemId, CancellationToken cancellationToken = default);
     Task ItemImageUpdatedAsync(Guid listId, Guid itemId, string imageUrl, CancellationToken cancellationToken = default);

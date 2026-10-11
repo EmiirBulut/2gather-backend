@@ -57,7 +57,8 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
             Token = token,
             Role = request.Role,
             ExpiresAt = _dateTimeService.UtcNow.AddHours(48),
-            CreatedAt = _dateTimeService.UtcNow
+            CreatedAt = _dateTimeService.UtcNow,
+            EmailStatus = InviteEmailStatus.Pending
         };
 
         await _inviteRepository.AddAsync(invite, cancellationToken);
@@ -65,12 +66,21 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, I
 
         try
         {
-            await _emailService.SendInviteAsync(request.Email, list.Name, inviter.DisplayName, token, request.Role, cancellationToken);
+            invite.ProviderMessageId = await _emailService.SendInviteAsync(
+                request.Email, list.Name, inviter.DisplayName, token, request.Role, cancellationToken);
+            invite.EmailStatus = InviteEmailStatus.Sent;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Invite created but email delivery failed for {Email} on list {ListId}", request.Email, request.ListId);
+            // The invite stays valid; the owner sees "Gönderilemedi" and can resend it
+            invite.EmailStatus = InviteEmailStatus.Failed;
+            _logger.LogWarning(ex, "Invite created but email delivery failed on list {ListId}", request.ListId);
         }
+
+        invite.LastSentAt = _dateTimeService.UtcNow;
+        invite.SendCount = 1;
+        await _inviteRepository.UpdateAsync(invite, cancellationToken);
+        await _inviteRepository.SaveChangesAsync(cancellationToken);
 
         return new InviteDto(invite.Id, invite.InvitedEmail, invite.Token, invite.ExpiresAt);
     }

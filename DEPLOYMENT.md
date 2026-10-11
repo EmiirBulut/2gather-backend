@@ -57,6 +57,7 @@ The repo's existing convention (`VITE_API_BASE_URL`, already used in `.env.devel
 | `Jwt__Audience` | `TwoGatherClient` | Same as above |
 | `Resend__ApiKey` | Real Resend API key | Only needed once outbound invite emails must actually send |
 | `Resend__FromEmail`, `Resend__FromName`, `Resend__AppBaseUrl` | Email sending config | `Resend__AppBaseUrl` should be the frontend's final URL |
+| `Resend__WebhookSecret` | Signing secret (`whsec_...`) of the Resend webhook | Enables invite delivery tracking. In Resend → **Webhooks** add `https://<api-domain>/api/webhooks/resend` with the events `email.sent`, `email.delivered`, `email.bounced`, `email.complained`, `email.failed`. Without it the endpoint returns 404 and invites only show sent/failed |
 | `R2__AccountId`, `R2__AccessKeyId`, `R2__SecretAccessKey` | Cloudflare R2 credentials for item images | R2 API token with Object Read & Write on the bucket. If any R2 value is missing the API falls back to local disk, which Render wipes on every deploy (a warning is logged at startup) |
 | `R2__BucketName` | R2 bucket name | e.g. `2gather-images` |
 | `R2__PublicBaseUrl` | Public URL of the bucket | The bucket's custom domain (recommended) or its `r2.dev` URL — no trailing slash |
