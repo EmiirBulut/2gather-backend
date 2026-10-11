@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Common.Pricing;
 using TwoGather.Application.Features.Lists.DTOs;
 using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Domain.Entities;
@@ -121,21 +122,6 @@ public class ListRepository : IListRepository
                 MemberCount = l.Members.Count(),
                 TotalItemCount = l.Items.Count(),
                 PurchasedItemCount = l.Items.Count(i => i.Status == ItemStatus.Purchased),
-                TotalEstimated = l.Items
-                    .Sum(i => i.Options
-                        .Where(o => o.Price.HasValue)
-                        .OrderByDescending(o => o.IsFinal)
-                        .ThenByDescending(o => o.IsSelected)
-                        .Select(o => (decimal?)o.Price)
-                        .FirstOrDefault() ?? 0),
-                TotalSpent = l.Items
-                    .Where(i => i.Status == ItemStatus.Purchased)
-                    .Sum(i => i.Options
-                        .Where(o => o.Price.HasValue)
-                        .OrderByDescending(o => o.IsFinal)
-                        .ThenByDescending(o => o.IsSelected)
-                        .Select(o => (decimal?)o.Price)
-                        .FirstOrDefault() ?? 0),
                 CategorySummaries = l.Items
                     .GroupBy(i => new { i.CategoryId, i.Category.Name, i.Category.RoomLabel })
                     .Select(g => new CategorySummaryDto
@@ -154,6 +140,22 @@ public class ListRepository : IListRepository
             .FirstOrDefaultAsync(cancellationToken);
 
         if (list is null) return null;
+
+        var itemPrices = await _dbContext.Items.AsNoTracking()
+            .Where(i => i.ListId == listId)
+            .Select(i => new
+            {
+                i.Status,
+                Options = i.Options
+                    .Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected))
+                    .ToList()
+            })
+            .ToListAsync(cancellationToken);
+
+        var totalEstimated = itemPrices.Sum(i => EffectiveOption.PriceOf(i.Options));
+        var totalSpent = itemPrices
+            .Where(i => i.Status == ItemStatus.Purchased)
+            .Sum(i => EffectiveOption.PriceOf(i.Options));
 
         var pendingClaims = await _dbContext.OptionClaims.AsNoTracking()
             .Where(c => c.Status == ClaimStatus.Pending && c.Option.Item.ListId == listId)
@@ -183,9 +185,9 @@ public class ListRepository : IListRepository
                 : 0,
             Financial = new FinancialSummaryDto
             {
-                TotalEstimated = list.TotalEstimated,
-                TotalSpent = list.TotalSpent,
-                RemainingBudget = list.TotalEstimated - list.TotalSpent
+                TotalEstimated = totalEstimated,
+                TotalSpent = totalSpent,
+                RemainingBudget = totalEstimated - totalSpent
             },
             PendingClaims = pendingClaims,
             CategorySummaries = list.CategorySummaries

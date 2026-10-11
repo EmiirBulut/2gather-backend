@@ -8,8 +8,11 @@ public class ReportItemDto
     public string? ImageUrl { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? SelectedOptionTitle { get; set; }
+    public Guid CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public decimal? EstimatedPrice { get; set; }
     public string? Currency { get; set; }
     public ItemStatus Status { get; set; }
+    public DateTime? PurchasedAt { get; set; }
+    public int OptionsCount { get; set; }
 }

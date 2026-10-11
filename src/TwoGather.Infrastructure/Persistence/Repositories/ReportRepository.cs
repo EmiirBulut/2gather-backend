@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Common.Pricing;
 using TwoGather.Application.Features.Reports.DTOs;
 using TwoGather.Domain.Enums;
 
@@ -14,27 +15,44 @@ public class ReportRepository : IReportRepository
         _dbContext = dbContext;
     }
 
+    private sealed record ItemPriceRow(
+        Guid Id,
+        string Name,
+        string? ImageUrl,
+        Guid CategoryId,
+        string CategoryName,
+        ItemStatus Status,
+        DateTime? PurchasedAt,
+        List<OptionPriceInfo> Options);
+
+    // Prices are resolved in memory so every report uses the same EffectiveOption rule.
+    private async Task<List<ItemPriceRow>> GetItemPriceRowsAsync(Guid listId, CancellationToken cancellationToken)
+        => await _dbContext.Items.AsNoTracking()
+            .Where(i => i.ListId == listId)
+            .Select(i => new ItemPriceRow(
+                i.Id,
+                i.Name,
+                i.ImageUrl,
+                i.CategoryId,
+                i.Category!.Name,
+                i.Status,
+                i.PurchasedAt,
+                i.Options
+                    .Select(o => new OptionPriceInfo(o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected))
+                    .ToList()))
+            .ToListAsync(cancellationToken);
+
     public async Task<ListSummaryDto> GetListSummaryAsync(Guid listId, CancellationToken cancellationToken = default)
     {
-        var items = await _dbContext.Items.AsNoTracking()
-            .Where(i => i.ListId == listId)
-            .Select(i => new
-            {
-                i.Status,
-                SelectedOptionPrice = i.Options
-                    .Where(o => o.IsSelected && o.Price.HasValue)
-                    .Select(o => o.Price!.Value)
-                    .FirstOrDefault()
-            })
-            .ToListAsync(cancellationToken);
+        var items = await GetItemPriceRowsAsync(listId, cancellationToken);
 
         var totalItems = items.Count;
         var pendingCount = items.Count(i => i.Status == ItemStatus.Pending);
         var purchasedCount = items.Count(i => i.Status == ItemStatus.Purchased);
         var totalSpent = items
             .Where(i => i.Status == ItemStatus.Purchased)
-            .Sum(i => i.SelectedOptionPrice);
-        var estimatedTotal = items.Sum(i => i.SelectedOptionPrice);
+            .Sum(i => EffectiveOption.PriceOf(i.Options));
+        var estimatedTotal = items.Sum(i => EffectiveOption.PriceOf(i.Options));
 
         var budgetUsagePercentage = estimatedTotal > 0
             ? Math.Round(totalSpent / estimatedTotal * 100, 1)
@@ -55,19 +73,7 @@ public class ReportRepository : IReportRepository
 
     public async Task<IReadOnlyList<CategoryReportDto>> GetCategoryReportAsync(Guid listId, CancellationToken cancellationToken = default)
     {
-        var rows = await _dbContext.Items.AsNoTracking()
-            .Where(i => i.ListId == listId)
-            .Select(i => new
-            {
-                i.CategoryId,
-                CategoryName = i.Category!.Name,
-                i.Status,
-                SelectedOptionPrice = i.Options
-                    .Where(o => o.IsSelected && o.Price.HasValue)
-                    .Select(o => o.Price!.Value)
-                    .FirstOrDefault()
-            })
-            .ToListAsync(cancellationToken);
+        var rows = await GetItemPriceRowsAsync(listId, cancellationToken);
 
         return rows
             .GroupBy(r => new { r.CategoryId, r.CategoryName })
@@ -81,7 +87,7 @@ public class ReportRepository : IReportRepository
                     total,
                     g.Count(r => r.Status == ItemStatus.Pending),
                     purchased,
-                    g.Where(r => r.Status == ItemStatus.Purchased).Sum(r => r.SelectedOptionPrice),
+                    g.Where(r => r.Status == ItemStatus.Purchased).Sum(r => EffectiveOption.PriceOf(r.Options)),
                     total > 0 ? Math.Round((decimal)purchased / total * 100, 1) : 0
                 );
             })
@@ -91,62 +97,50 @@ public class ReportRepository : IReportRepository
 
     public async Task<IReadOnlyList<ReportItemDto>> GetItemsForReportAsync(Guid listId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Items.AsNoTracking()
-            .Where(i => i.ListId == listId)
-            .Select(i => new ReportItemDto
+        var rows = await GetItemPriceRowsAsync(listId, cancellationToken);
+
+        return rows
+            .Select(r =>
             {
-                Id = i.Id,
-                ImageUrl = i.ImageUrl,
-                Name = i.Name,
-                CategoryName = i.Category!.Name,
-                Status = i.Status,
-                SelectedOptionTitle = i.Options
-                    .Where(o => o.IsSelected)
-                    .Select(o => o.Title)
-                    .FirstOrDefault(),
-                EstimatedPrice = i.Options
-                    .Where(o => o.IsSelected && o.Price.HasValue)
-                    .Select(o => o.Price)
-                    .FirstOrDefault(),
-                Currency = i.Options
-                    .Where(o => o.IsSelected)
-                    .Select(o => o.Currency)
-                    .FirstOrDefault()
+                var effective = EffectiveOption.Pick(r.Options);
+                return new ReportItemDto
+                {
+                    Id = r.Id,
+                    ImageUrl = r.ImageUrl,
+                    Name = r.Name,
+                    CategoryId = r.CategoryId,
+                    CategoryName = r.CategoryName,
+                    Status = r.Status,
+                    PurchasedAt = r.PurchasedAt,
+                    OptionsCount = r.Options.Count,
+                    SelectedOptionTitle = effective?.Title,
+                    EstimatedPrice = effective?.Price,
+                    Currency = effective?.Currency
+                };
             })
             .OrderBy(i => i.Status)
             .ThenBy(i => i.CategoryName)
-            .ToListAsync(cancellationToken);
+            .ToList();
     }
 
     public async Task<IReadOnlyList<SpendingBreakdownDto>> GetSpendingBreakdownAsync(Guid listId, CancellationToken cancellationToken = default)
     {
-        var rows = await _dbContext.Items.AsNoTracking()
-            .Where(i => i.ListId == listId && i.Status == ItemStatus.Purchased)
-            .Select(i => new
-            {
-                CategoryName = i.Category!.Name,
-                ItemId = i.Id,
-                ItemName = i.Name,
-                PurchasedAt = i.PurchasedAt!.Value,
-                SelectedOption = i.Options
-                    .Where(o => o.IsSelected && o.Price.HasValue)
-                    .Select(o => new { o.Title, Price = o.Price!.Value, o.Currency })
-                    .FirstOrDefault()
-            })
-            .Where(i => i.SelectedOption != null)
-            .ToListAsync(cancellationToken);
+        var rows = await GetItemPriceRowsAsync(listId, cancellationToken);
 
         return rows
-            .GroupBy(r => r.CategoryName)
+            .Where(r => r.Status == ItemStatus.Purchased && r.PurchasedAt.HasValue)
+            .Select(r => new { Row = r, Effective = EffectiveOption.Pick(r.Options) })
+            .Where(x => x.Effective is not null)
+            .GroupBy(x => x.Row.CategoryName)
             .Select(g => new SpendingBreakdownDto(
                 g.Key,
-                g.Select(r => new SpendingItemDto(
-                    r.ItemId,
-                    r.ItemName,
-                    r.SelectedOption!.Title,
-                    r.SelectedOption.Price,
-                    r.SelectedOption.Currency,
-                    r.PurchasedAt
+                g.Select(x => new SpendingItemDto(
+                    x.Row.Id,
+                    x.Row.Name,
+                    x.Effective!.Title,
+                    x.Effective.Price!.Value,
+                    x.Effective.Currency,
+                    x.Row.PurchasedAt!.Value
                 )).ToList()
             ))
             .OrderBy(r => r.CategoryName)
