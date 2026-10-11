@@ -22,6 +22,7 @@ public class ReportRepository : IReportRepository
         string? ImageUrl,
         Guid CategoryId,
         string CategoryName,
+        string RoomLabel,
         ItemStatus Status,
         DateTime? PurchasedAt,
         Guid? PurchasedOptionId,
@@ -42,6 +43,7 @@ public class ReportRepository : IReportRepository
                 i.ImageUrl,
                 i.CategoryId,
                 i.Category!.Name,
+                i.Category!.RoomLabel,
                 i.Status,
                 i.PurchasedAt,
                 i.PurchasedOptionId,
@@ -127,10 +129,15 @@ public class ReportRepository : IReportRepository
                     Name = r.Name,
                     CategoryId = r.CategoryId,
                     CategoryName = r.CategoryName,
+                    RoomLabel = r.RoomLabel,
                     Status = r.Status,
                     PurchasedAt = r.PurchasedAt,
                     OptionsCount = r.Options.Count,
                     Purchasers = r.Purchasers,
+                    Options = r.Options
+                        .OrderByDescending(o => o.Price ?? 0)
+                        .Select(o => new ReportOptionDto(o.Id, o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected, o.IsPurchased))
+                        .ToList(),
                     SelectedOptionTitle = effective?.Title,
                     EstimatedPrice = effective?.Price,
                     Currency = effective?.Currency
