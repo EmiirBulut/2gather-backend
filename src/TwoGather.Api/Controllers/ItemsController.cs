@@ -17,6 +17,12 @@ namespace TwoGather.Api.Controllers;
 [Authorize]
 public class ItemsController : ControllerBase
 {
+    private const long MaxImageBytes = 5 * 1024 * 1024;
+    private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp"
+    };
+
     private readonly IMediator _mediator;
 
     public ItemsController(IMediator mediator)
@@ -80,20 +86,21 @@ public class ItemsController : ControllerBase
 
     [HttpPost("api/items/{itemId:guid}/image")]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<string>> UploadImage(
+    [RequestSizeLimit(MaxImageBytes + 64 * 1024)]
+    public async Task<ActionResult<UploadImageResponse>> UploadImage(
         Guid itemId,
         IFormFile file,
         CancellationToken cancellationToken)
     {
-        if (file.Length > 5 * 1024 * 1024)
+        if (file.Length > MaxImageBytes)
             return BadRequest("Image must be smaller than 5MB.");
 
-        if (file.ContentType != "image/jpeg" && file.ContentType != "image/png")
-            return BadRequest("Only JPEG and PNG images are allowed.");
+        if (!AllowedImageTypes.Contains(file.ContentType))
+            return BadRequest("Only JPEG, PNG and WebP images are allowed.");
 
-        using var stream = file.OpenReadStream();
-        var imageUrl = await _mediator.Send(new UploadItemImageCommand(itemId, stream, file.FileName), cancellationToken);
-        return Ok(imageUrl);
+        await using var stream = file.OpenReadStream();
+        var imageUrl = await _mediator.Send(new UploadItemImageCommand(itemId, stream, file.ContentType), cancellationToken);
+        return Ok(new UploadImageResponse(imageUrl));
     }
 
     [HttpDelete("api/items/{itemId:guid}")]
@@ -105,5 +112,6 @@ public class ItemsController : ControllerBase
 }
 
 public record CreateItemRequest(Guid CategoryId, string Name, string? ImageUrl, string? PlanningNote);
+public record UploadImageResponse(string ImageUrl);
 public record MarkPurchasedRequest(IReadOnlyList<Guid> PurchaserUserIds);
 public record UpdateItemRequest(string Name, Guid CategoryId, string? ImageUrl, string? PlanningNote);

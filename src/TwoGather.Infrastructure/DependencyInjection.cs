@@ -38,7 +38,12 @@ public static class DependencyInjection
         services.AddScoped<IOptionRatingRepository, OptionRatingRepository>();
         services.AddScoped<IOptionClaimRepository, OptionClaimRepository>();
 
-        services.AddScoped<IFileStorageService, FileStorageService>();
+        services.Configure<R2Options>(configuration.GetSection(R2Options.SectionName));
+        var r2Options = configuration.GetSection(R2Options.SectionName).Get<R2Options>() ?? new R2Options();
+        if (r2Options.IsConfigured)
+            services.AddSingleton<IFileStorageService, R2FileStorageService>();
+        else
+            services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();

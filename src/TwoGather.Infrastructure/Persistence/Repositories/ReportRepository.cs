@@ -31,6 +31,7 @@ public class ReportRepository : IReportRepository
     private async Task<List<ItemPriceRow>> GetItemPriceRowsAsync(Guid listId, CancellationToken cancellationToken)
         => await _dbContext.Items.AsNoTracking()
             .Where(i => i.ListId == listId)
+            .AsSplitQuery()
             .Select(i => new ItemPriceRow(
                 i.Id,
                 i.Name,
