@@ -126,6 +126,9 @@ namespace TwoGather.Infrastructure.Migrations
                     b.Property<DateTime?>("PurchasedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("PurchasedOptionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -205,6 +208,21 @@ namespace TwoGather.Infrastructure.Migrations
                     b.ToTable("ItemOptions");
                 });
 
+            modelBuilder.Entity("TwoGather.Domain.Entities.ItemPurchaser", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ItemId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ItemPurchasers");
+                });
+
             modelBuilder.Entity("TwoGather.Domain.Entities.List", b =>
                 {
                     b.Property<Guid>("Id")
@@ -241,6 +259,14 @@ namespace TwoGather.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmailStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -249,12 +275,22 @@ namespace TwoGather.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<DateTime?>("LastSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("ListId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("SendCount")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -264,6 +300,8 @@ namespace TwoGather.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ListId");
+
+                    b.HasIndex("ProviderMessageId");
 
                     b.HasIndex("Token")
                         .IsUnique();
@@ -473,6 +511,25 @@ namespace TwoGather.Infrastructure.Migrations
                     b.Navigation("Item");
                 });
 
+            modelBuilder.Entity("TwoGather.Domain.Entities.ItemPurchaser", b =>
+                {
+                    b.HasOne("TwoGather.Domain.Entities.Item", "Item")
+                        .WithMany("Purchasers")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TwoGather.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TwoGather.Domain.Entities.List", b =>
                 {
                     b.HasOne("TwoGather.Domain.Entities.User", "Owner")
@@ -566,6 +623,8 @@ namespace TwoGather.Infrastructure.Migrations
             modelBuilder.Entity("TwoGather.Domain.Entities.Item", b =>
                 {
                     b.Navigation("Options");
+
+                    b.Navigation("Purchasers");
                 });
 
             modelBuilder.Entity("TwoGather.Domain.Entities.ItemOption", b =>

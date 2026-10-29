@@ -36,6 +36,9 @@ public class SetFinalOptionCommandHandler : IRequestHandler<SetFinalOptionComman
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner);
 
+        if (option.Item.Status == ItemStatus.Purchased)
+            throw new DomainException("Satın alınmış ürünün nihai kararı değiştirilemez.");
+
         var existing = await _optionRepository.GetCurrentFinalOptionForItemAsync(option.Item.Id, cancellationToken);
         if (existing is not null && existing.Id != option.Id)
         {

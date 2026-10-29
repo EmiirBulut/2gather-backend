@@ -20,9 +20,9 @@ public class ResendEmailService : IEmailService
         _logger = logger;
     }
 
-    public async Task SendInviteAsync(string toEmail, string listName, string inviterName, string inviteToken, MemberRole role, CancellationToken cancellationToken = default)
+    public async Task<string> SendInviteAsync(string toEmail, string listName, string inviterName, string inviteToken, MemberRole role, CancellationToken cancellationToken = default)
     {
-        var acceptUrl = $"{_options.AppBaseUrl}/invite/accept?token={inviteToken}";
+        var acceptUrl = $"{_options.AppBaseUrl.TrimEnd('/')}/invite/{inviteToken}";
         var roleLabel = role switch
         {
             MemberRole.Editor => "Editör",
@@ -40,8 +40,9 @@ public class ResendEmailService : IEmailService
 
         try
         {
-            await _resend.EmailSendAsync(message, cancellationToken);
+            var response = await _resend.EmailSendAsync(message, cancellationToken);
             _logger.LogInformation("Invite email sent to {Email} for list {ListName}", toEmail, listName);
+            return response.Content.ToString();
         }
         catch (Exception ex)
         {

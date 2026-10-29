@@ -10,6 +10,10 @@ public interface INotificationService
 {
     Task ItemAddedAsync(Guid listId, ItemDto item, CancellationToken cancellationToken = default);
     Task ItemUpdatedAsync(Guid listId, ItemDto item, CancellationToken cancellationToken = default);
+    Task CategoryDeletedAsync(Guid listId, Guid categoryId, CancellationToken cancellationToken = default);
+    Task ListUpdatedAsync(Guid listId, string name, CancellationToken cancellationToken = default);
+    Task InviteStatusChangedAsync(Guid listId, Guid inviteId, CancellationToken cancellationToken = default);
+    Task ItemPurchaseUndoneAsync(Guid listId, Guid itemId, CancellationToken cancellationToken = default);
     Task ItemPurchasedAsync(Guid listId, Guid itemId, DateTime purchasedAt, CancellationToken cancellationToken = default);
     Task ItemDeletedAsync(Guid listId, Guid itemId, CancellationToken cancellationToken = default);
     Task ItemImageUpdatedAsync(Guid listId, Guid itemId, string imageUrl, CancellationToken cancellationToken = default);
@@ -18,11 +22,11 @@ public interface INotificationService
     Task OptionDeletedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default);
     Task MemberJoinedAsync(Guid listId, MemberDto member, CancellationToken cancellationToken = default);
     Task MemberRemovedAsync(Guid listId, Guid userId, CancellationToken cancellationToken = default);
-    Task OptionRatingUpdatedAsync(Guid listId, Guid optionId, CancellationToken cancellationToken = default);
+    Task OptionRatingUpdatedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default);
     Task OptionFinalizedAsync(Guid listId, Guid itemId, Guid finalOptionId, CancellationToken cancellationToken = default);
     Task OptionFinalRemovedAsync(Guid listId, Guid itemId, Guid optionId, CancellationToken cancellationToken = default);
-    Task ClaimCreatedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
-    Task ClaimReviewedAsync(Guid listId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
+    Task ClaimCreatedAsync(Guid listId, Guid itemId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
+    Task ClaimReviewedAsync(Guid listId, Guid itemId, Guid optionId, ClaimDto claim, CancellationToken cancellationToken = default);
     Task ClaimPendingNotificationAsync(Guid listId, Guid ownerUserId, ClaimDto claim, CancellationToken cancellationToken = default);
     Task NotificationCountChangedAsync(Guid listId, Guid ownerUserId, NotificationCountDto count, CancellationToken cancellationToken = default);
 }

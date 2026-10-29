@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TwoGather.Application.Common.Interfaces;
+using TwoGather.Application.Common.Pricing;
+using TwoGather.Application.Features.Members.DTOs;
 using TwoGather.Domain.Entities;
 using TwoGather.Domain.Enums;
 
@@ -23,12 +25,17 @@ public class ItemRepository : IItemRepository
             .Include(i => i.Options)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Item>> GetByCategoryIdAsync(Guid categoryId, CancellationToken cancellationToken = default)
+        => await _dbContext.Items.AsNoTracking()
+            .Where(i => i.CategoryId == categoryId)
+            .ToListAsync(cancellationToken);
+
     public async Task<Item?> GetByIdWithCategoryAsync(Guid id, CancellationToken cancellationToken = default)
         => await _dbContext.Items.AsNoTracking()
             .Include(i => i.Category)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<(Item item, int optionsCount)>> GetByListIdAsync(Guid listId, ItemStatus? status, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<(Item item, int optionsCount, decimal? effectivePrice)>> GetByListIdAsync(Guid listId, ItemStatus? status, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Items.AsNoTracking()
             .Where(i => i.ListId == listId);
@@ -41,15 +48,44 @@ public class ItemRepository : IItemRepository
             .Select(i => new
             {
                 Item = i,
-                OptionsCount = _dbContext.ItemOptions.Count(o => o.ItemId == i.Id)
+                Options = i.Options
+                    .Select(o => new OptionPriceInfo(o.Id, o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected, o.Id == i.PurchasedOptionId))
+                    .ToList()
             })
             .ToListAsync(cancellationToken);
 
-        return rows.Select(r => (r.Item, r.OptionsCount)).ToList();
+        return rows.Select(r => (
+            r.Item,
+            r.Options.Count,
+            EffectiveOption.Pick(r.Options, EffectiveOption.IsLegacyPurchase(r.Item.Status, r.Item.PurchasedOptionId))?.Price
+        )).ToList();
     }
+
+    public async Task<IReadOnlyList<MemberAvatarDto>> GetPurchasersAsync(Guid itemId, CancellationToken cancellationToken = default)
+        => await _dbContext.ItemPurchasers.AsNoTracking()
+            .Where(p => p.ItemId == itemId)
+            .OrderBy(p => p.User.DisplayName)
+            .Select(p => new MemberAvatarDto(
+                p.UserId,
+                p.User.DisplayName,
+                p.User.DisplayName.Length >= 2
+                    ? p.User.DisplayName.Substring(0, 2).ToUpper()
+                    : p.User.DisplayName.ToUpper()))
+            .ToListAsync(cancellationToken);
 
     public async Task AddAsync(Item item, CancellationToken cancellationToken = default)
         => await _dbContext.Items.AddAsync(item, cancellationToken);
+
+    public async Task AddPurchasersAsync(IEnumerable<ItemPurchaser> purchasers, CancellationToken cancellationToken = default)
+        => await _dbContext.ItemPurchasers.AddRangeAsync(purchasers, cancellationToken);
+
+    public async Task RemovePurchasersAsync(Guid itemId, CancellationToken cancellationToken = default)
+    {
+        var purchasers = await _dbContext.ItemPurchasers
+            .Where(p => p.ItemId == itemId)
+            .ToListAsync(cancellationToken);
+        _dbContext.ItemPurchasers.RemoveRange(purchasers);
+    }
 
     public Task UpdateAsync(Item item, CancellationToken cancellationToken = default)
     {

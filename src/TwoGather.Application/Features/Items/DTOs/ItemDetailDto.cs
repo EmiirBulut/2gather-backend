@@ -11,11 +11,13 @@ public class ItemDetailDto
     public string? PlanningNote { get; set; }
     public ItemStatus Status { get; set; }
     public DateTime? PurchasedAt { get; set; }
+    public Guid? PurchasedOptionId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public Guid CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public string RoomLabel { get; set; } = string.Empty;
     public MemberAvatarDto? AssignedTo { get; set; }
+    public List<MemberAvatarDto> Purchasers { get; set; } = new();
     public List<ItemOptionDetailDto> Options { get; set; } = new();
 }

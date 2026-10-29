@@ -17,7 +17,11 @@ public class ListInviteConfiguration : IEntityTypeConfiguration<ListInvite>
         builder.Property(i => i.ExpiresAt).IsRequired();
         builder.Property(i => i.CreatedAt).IsRequired();
 
+        builder.Property(i => i.EmailStatus).IsRequired().HasConversion<string>().HasMaxLength(32);
+        builder.Property(i => i.ProviderMessageId).HasMaxLength(64);
+
         builder.HasIndex(i => i.Token).IsUnique();
+        builder.HasIndex(i => i.ProviderMessageId);
 
         builder.HasOne(i => i.List)
             .WithMany()

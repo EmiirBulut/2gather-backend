@@ -49,6 +49,8 @@ public class GetItemDetailQueryHandler : IRequestHandler<GetItemDetailQuery, Ite
                 ? owner.User.DisplayName[..2].ToUpper()
                 : owner.User.DisplayName.ToUpper());
 
+        var purchasers = await _itemRepository.GetPurchasersAsync(item.Id, cancellationToken);
+
         return new ItemDetailDto
         {
             Id = item.Id,
@@ -57,12 +59,14 @@ public class GetItemDetailQueryHandler : IRequestHandler<GetItemDetailQuery, Ite
             PlanningNote = item.PlanningNote,
             Status = item.Status,
             PurchasedAt = item.PurchasedAt,
+            PurchasedOptionId = item.PurchasedOptionId,
             CreatedAt = item.CreatedAt,
             UpdatedAt = item.UpdatedAt,
             CategoryId = item.CategoryId,
             CategoryName = item.Category?.Name ?? string.Empty,
             RoomLabel = item.Category?.RoomLabel ?? string.Empty,
             AssignedTo = assignedTo,
+            Purchasers = purchasers.ToList(),
             Options = options.Select(x => new ItemOptionDetailDto
             {
                 Id = x.option.Id,

@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local image uploads (LocalFileStorageService)
+src/TwoGather.Api/wwwroot/uploads/

@@ -1,4 +1,5 @@
 using MediatR;
+using TwoGather.Application.Common.Pricing;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Application.Features.Items.DTOs;
@@ -36,6 +37,7 @@ public class UpdateItemCommandHandler : IRequestHandler<UpdateItemCommand, ItemD
 
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        PurchasedItemGuard.EnsureNotPurchased(item);
 
         item.Name = request.Name;
         item.CategoryId = request.CategoryId;
@@ -46,7 +48,8 @@ public class UpdateItemCommandHandler : IRequestHandler<UpdateItemCommand, ItemD
         await _itemRepository.UpdateAsync(item, cancellationToken);
         await _itemRepository.SaveChangesAsync(cancellationToken);
 
-        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.ImageUrl, item.PlanningNote, item.CreatedAt, item.UpdatedAt, item.Options.Count);
+        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.ImageUrl, item.PlanningNote, item.CreatedAt, item.UpdatedAt, item.Options.Count,
+            EffectiveOption.Pick(item.Options.Select(o => new OptionPriceInfo(o.Id, o.Title, o.Price, o.Currency, o.IsFinal, o.IsSelected, o.Id == item.PurchasedOptionId)))?.Price);
 
         await _notificationService.ItemUpdatedAsync(item.ListId, dto, cancellationToken);
 

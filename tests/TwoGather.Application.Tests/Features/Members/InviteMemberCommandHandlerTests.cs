@@ -78,7 +78,8 @@ public class InviteMemberCommandHandlerTests
         Assert.Equal(MemberRole.Viewer, capturedInvite.Role);
         Assert.Equal(_now.AddHours(48), capturedInvite.ExpiresAt);
 
-        _inviteRepo.Verify(r => r.SaveChangesAsync(default), Times.Once);
+        // Saved before sending (so the token is valid) and again with the email status
+        _inviteRepo.Verify(r => r.SaveChangesAsync(default), Times.Exactly(2));
         _emailService.Verify(e => e.SendInviteAsync("guest@example.com", "Test List", "Test User", capturedInvite.Token, MemberRole.Viewer, default), Times.Once);
 
         Assert.Equal(capturedInvite.Id, result.InviteId);
@@ -116,5 +117,47 @@ public class InviteMemberCommandHandlerTests
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             CreateHandler().Handle(new InviteMemberCommand(_listId, "guest@example.com", MemberRole.Viewer), default));
+    }
+
+    [Fact]
+    public async Task Handle_EmailSent_StoresSentStatusAndMessageId()
+    {
+        _listRepo.Setup(r => r.GetByIdWithMembersAsync(_listId, default))
+            .ReturnsAsync(MakeList(new[] { MakeMember(MemberRole.Owner) }));
+        ListInvite? capturedInvite = null;
+        _inviteRepo.Setup(r => r.AddAsync(It.IsAny<ListInvite>(), default))
+            .Callback<ListInvite, CancellationToken>((inv, _) => capturedInvite = inv)
+            .Returns(Task.CompletedTask);
+        _emailService.Setup(e => e.SendInviteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<MemberRole>(), default))
+            .ReturnsAsync("msg-123");
+
+        await CreateHandler().Handle(new InviteMemberCommand(_listId, "guest@example.com", MemberRole.Editor), default);
+
+        Assert.Equal(InviteEmailStatus.Sent, capturedInvite!.EmailStatus);
+        Assert.Equal("msg-123", capturedInvite.ProviderMessageId);
+        Assert.Equal(_now, capturedInvite.LastSentAt);
+        Assert.Equal(1, capturedInvite.SendCount);
+    }
+
+    [Fact]
+    public async Task Handle_EmailFails_KeepsInviteWithFailedStatus()
+    {
+        _listRepo.Setup(r => r.GetByIdWithMembersAsync(_listId, default))
+            .ReturnsAsync(MakeList(new[] { MakeMember(MemberRole.Owner) }));
+        ListInvite? capturedInvite = null;
+        _inviteRepo.Setup(r => r.AddAsync(It.IsAny<ListInvite>(), default))
+            .Callback<ListInvite, CancellationToken>((inv, _) => capturedInvite = inv)
+            .Returns(Task.CompletedTask);
+        _emailService.Setup(e => e.SendInviteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<MemberRole>(), default))
+            .ThrowsAsync(new InvalidOperationException("provider down"));
+
+        var result = await CreateHandler().Handle(new InviteMemberCommand(_listId, "guest@example.com", MemberRole.Editor), default);
+
+        Assert.NotNull(result);
+        Assert.Equal(InviteEmailStatus.Failed, capturedInvite!.EmailStatus);
+        Assert.Null(capturedInvite.ProviderMessageId);
+        _inviteRepo.Verify(r => r.UpdateAsync(capturedInvite, default), Times.Once);
     }
 }

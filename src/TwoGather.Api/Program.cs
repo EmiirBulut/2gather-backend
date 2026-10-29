@@ -1,12 +1,15 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using TwoGather.Api.Hubs;
 using TwoGather.Api.Middleware;
 using TwoGather.Application;
 using TwoGather.Infrastructure;
+using TwoGather.Infrastructure.Services;
+using TwoGather.Infrastructure.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -97,6 +100,13 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
+var isR2Configured = app.Configuration.GetSection(R2Options.SectionName).Get<R2Options>()?.IsConfigured == true;
+if (!isR2Configured && app.Environment.IsProduction())
+{
+    app.Logger.LogWarning(
+        "R2 storage is not configured; item images are stored on local disk and will be lost on redeploy.");
+}
+
 // Render terminates TLS at its edge and forwards plain HTTP to the container.
 // Trust X-Forwarded-* so downstream scheme/IP detection (UseHttpsRedirection, etc.)
 // is correct. Proxy IPs aren't static on Render, so known network/proxy lists are cleared.
@@ -122,6 +132,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+if (!isR2Configured)
+{
+    // Serves images written by LocalFileStorageService
+    var uploadsPath = Path.Combine(app.Environment.ContentRootPath, LocalFileStorageService.UploadsRelativePath);
+    Directory.CreateDirectory(uploadsPath);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(uploadsPath),
+        RequestPath = "/" + LocalFileStorageService.UploadsFolder
+    });
+}
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();

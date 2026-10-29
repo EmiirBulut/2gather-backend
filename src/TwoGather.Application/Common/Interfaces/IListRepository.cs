@@ -13,6 +13,7 @@ public interface IListRepository
     Task<IReadOnlyList<ListSummaryDto>> GetUserListsSummaryAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<ListDetailDto?> GetListDetailAsync(Guid listId, Guid currentUserId, CancellationToken cancellationToken = default);
     Task AddAsync(List list, CancellationToken cancellationToken = default);
+    Task UpdateAsync(List list, CancellationToken cancellationToken = default);
     Task DeleteAsync(List list, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<MemberDto>> GetMembersByListIdAsync(Guid listId, CancellationToken cancellationToken = default);
     Task<ListMember?> GetMemberAsync(Guid listId, Guid userId, CancellationToken cancellationToken = default);

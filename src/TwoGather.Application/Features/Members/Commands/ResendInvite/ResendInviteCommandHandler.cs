@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Domain.Entities;
@@ -15,6 +16,7 @@ public class ResendInviteCommandHandler : IRequestHandler<ResendInviteCommand>
     private readonly IEmailService _emailService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IDateTimeService _dateTimeService;
+    private readonly ILogger<ResendInviteCommandHandler> _logger;
 
     public ResendInviteCommandHandler(
         IListRepository listRepository,
@@ -22,7 +24,8 @@ public class ResendInviteCommandHandler : IRequestHandler<ResendInviteCommand>
         IUserRepository userRepository,
         IEmailService emailService,
         ICurrentUserService currentUserService,
-        IDateTimeService dateTimeService)
+        IDateTimeService dateTimeService,
+        ILogger<ResendInviteCommandHandler> logger)
     {
         _listRepository = listRepository;
         _inviteRepository = inviteRepository;
@@ -30,6 +33,7 @@ public class ResendInviteCommandHandler : IRequestHandler<ResendInviteCommand>
         _emailService = emailService;
         _currentUserService = currentUserService;
         _dateTimeService = dateTimeService;
+        _logger = logger;
     }
 
     public async Task Handle(ResendInviteCommand request, CancellationToken cancellationToken)
@@ -53,10 +57,28 @@ public class ResendInviteCommandHandler : IRequestHandler<ResendInviteCommand>
             ?? throw new NotFoundException(nameof(User), _currentUserService.UserId);
 
         invite.ExpiresAt = _dateTimeService.UtcNow.AddDays(7);
+        invite.LastSentAt = _dateTimeService.UtcNow;
+        invite.SendCount++;
+        invite.DeliveredAt = null;
+
+        var isSent = true;
+        try
+        {
+            invite.ProviderMessageId = await _emailService.SendInviteAsync(
+                invite.InvitedEmail, list.Name, inviter.DisplayName, invite.Token, invite.Role, cancellationToken);
+            invite.EmailStatus = InviteEmailStatus.Sent;
+        }
+        catch (Exception ex)
+        {
+            isSent = false;
+            invite.EmailStatus = InviteEmailStatus.Failed;
+            _logger.LogWarning(ex, "Resending invite {InviteId} failed", invite.Id);
+        }
 
         await _inviteRepository.UpdateAsync(invite, cancellationToken);
         await _inviteRepository.SaveChangesAsync(cancellationToken);
 
-        await _emailService.SendInviteAsync(invite.InvitedEmail, list.Name, inviter.DisplayName, invite.Token, invite.Role, cancellationToken);
+        if (!isSent)
+            throw new DomainException("Davet e-postası gönderilemedi. Lütfen daha sonra tekrar deneyin.");
     }
 }

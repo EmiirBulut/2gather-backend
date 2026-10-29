@@ -49,6 +49,7 @@ public class ReviewClaimCommandHandler : IRequestHandler<ReviewClaimCommand, Cla
 
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner);
+        PurchasedItemGuard.EnsureNotPurchased(option.Item);
 
         if (claim.Status != ClaimStatus.Pending)
             throw new DomainException("Yalnızca beklemedeki talepler incelenebilir.");
@@ -69,7 +70,7 @@ public class ReviewClaimCommandHandler : IRequestHandler<ReviewClaimCommand, Cla
         var user = await _userRepository.GetByIdAsync(claim.UserId, cancellationToken);
         var dto = new ClaimDto(claim.Id, claim.UserId, user?.DisplayName ?? string.Empty, claim.Percentage, claim.Status, claim.CreatedAt);
 
-        await _notificationService.ClaimReviewedAsync(option.Item.ListId, claim.OptionId, dto, cancellationToken);
+        await _notificationService.ClaimReviewedAsync(option.Item.ListId, option.ItemId, claim.OptionId, dto, cancellationToken);
 
         var pendingClaims = await _claimRepository.GetPendingClaimsCountForListAsync(option.Item.ListId, cancellationToken);
         var pendingInvites = await _inviteRepository.GetPendingInvitesCountAsync(option.Item.ListId, cancellationToken);

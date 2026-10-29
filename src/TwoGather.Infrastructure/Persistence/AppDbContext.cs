@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<ListInvite> ListInvites => Set<ListInvite>();
     public DbSet<OptionRating> OptionRatings => Set<OptionRating>();
     public DbSet<OptionClaim> OptionClaims => Set<OptionClaim>();
+    public DbSet<ItemPurchaser> ItemPurchasers => Set<ItemPurchaser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -32,6 +32,7 @@ public class DeleteOptionCommandHandler : IRequestHandler<DeleteOptionCommand>
 
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        PurchasedItemGuard.EnsureNotPurchased(option.Item);
 
         if (option.IsFinal)
             throw new DomainException("Nihai kararı verilmiş seçenek silinemez. Önce nihai kararı kaldırın.");

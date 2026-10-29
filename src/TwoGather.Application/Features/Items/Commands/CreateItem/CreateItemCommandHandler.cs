@@ -55,7 +55,7 @@ public class CreateItemCommandHandler : IRequestHandler<CreateItemCommand, ItemD
         await _itemRepository.AddAsync(item, cancellationToken);
         await _itemRepository.SaveChangesAsync(cancellationToken);
 
-        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.ImageUrl, item.PlanningNote, item.CreatedAt, item.UpdatedAt, 0);
+        var dto = new ItemDto(item.Id, item.ListId, item.CategoryId, item.Name, item.Status, item.PurchasedAt, item.ImageUrl, item.PlanningNote, item.CreatedAt, item.UpdatedAt, 0, null);
 
         await _notificationService.ItemAddedAsync(request.ListId, dto, cancellationToken);
 

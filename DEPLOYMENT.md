@@ -57,6 +57,10 @@ The repo's existing convention (`VITE_API_BASE_URL`, already used in `.env.devel
 | `Jwt__Audience` | `TwoGatherClient` | Same as above |
 | `Resend__ApiKey` | Real Resend API key | Only needed once outbound invite emails must actually send |
 | `Resend__FromEmail`, `Resend__FromName`, `Resend__AppBaseUrl` | Email sending config | `Resend__AppBaseUrl` should be the frontend's final URL |
+| `Resend__WebhookSecret` | Signing secret (`whsec_...`) of the Resend webhook | Enables invite delivery tracking. In Resend → **Webhooks** add `https://<api-domain>/api/webhooks/resend` with the events `email.sent`, `email.delivered`, `email.bounced`, `email.complained`, `email.failed`. Without it the endpoint returns 404 and invites only show sent/failed |
+| `R2__AccountId`, `R2__AccessKeyId`, `R2__SecretAccessKey` | Cloudflare R2 credentials for item images | R2 API token with Object Read & Write on the bucket. If any R2 value is missing the API falls back to local disk, which Render wipes on every deploy (a warning is logged at startup) |
+| `R2__BucketName` | R2 bucket name | e.g. `2gather-images` |
+| `R2__PublicBaseUrl` | Public URL of the bucket | The bucket's custom domain (recommended) or its `r2.dev` URL — no trailing slash |
 | `Cors__AllowedOrigins` | Comma-separated allowed origins | e.g. `https://<app>.emirbulutt.com` — see CORS section below |
 
 Double-underscore (`__`) is ASP.NET Core's standard environment-variable path separator for nested config keys (`ConnectionStrings:DefaultConnection` → `ConnectionStrings__DefaultConnection`) — no custom config system involved.
@@ -121,6 +125,17 @@ Cloudflare is the DNS provider for `emirbulutt.com` (registered at Squarespace, 
 4. Wait for Render to verify the domain (shows as verified/active in the Render dashboard).
 
 No DNS target is documented here in advance — Render only generates it once the service and custom domain actually exist.
+
+---
+
+## Cloudflare R2 (item images)
+
+1. Cloudflare dashboard → **R2** → enable R2 (a payment method may be required even on the free tier) → **Create bucket** (e.g. `2gather-images`).
+2. Bucket → **Settings** → **Public access**: connect a custom domain (e.g. `images.<your-domain>`, recommended for production) or enable the rate-limited `r2.dev` URL for testing. That URL is `R2__PublicBaseUrl`.
+3. R2 → **Manage API tokens** → create a token with **Object Read & Write** scoped to the bucket. Copy the Access Key ID and Secret into `R2__AccessKeyId` / `R2__SecretAccessKey`; the Account ID shown on the R2 overview page goes into `R2__AccountId`.
+4. Set the five `R2__*` variables on the Render backend service and redeploy. Uploads go to `items/<itemId>/<random>.<ext>`; replaced or deleted item images are removed from the bucket.
+
+Free tier (at time of writing): 10 GB storage, 1M write / 10M read operations per month, no egress fees.
 
 ---
 

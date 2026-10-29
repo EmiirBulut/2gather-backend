@@ -21,6 +21,10 @@ public class ListInviteRepository : IListInviteRepository
         => await _dbContext.ListInvites
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
+    public async Task<ListInvite?> GetByProviderMessageIdAsync(string providerMessageId, CancellationToken cancellationToken = default)
+        => await _dbContext.ListInvites
+            .FirstOrDefaultAsync(i => i.ProviderMessageId == providerMessageId, cancellationToken);
+
     public async Task<IReadOnlyList<ListInvite>> GetByListIdAsync(Guid listId, CancellationToken cancellationToken = default)
         => await _dbContext.ListInvites.AsNoTracking()
             .Where(i => i.ListId == listId && i.AcceptedAt == null)

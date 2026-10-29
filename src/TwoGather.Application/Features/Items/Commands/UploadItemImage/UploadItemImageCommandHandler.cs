@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using TwoGather.Application.Common.Helpers;
 using TwoGather.Application.Common.Interfaces;
 using TwoGather.Domain.Enums;
@@ -14,6 +15,7 @@ public class UploadItemImageCommandHandler : IRequestHandler<UploadItemImageComm
     private readonly INotificationService _notificationService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IDateTimeService _dateTimeService;
+    private readonly ILogger<UploadItemImageCommandHandler> _logger;
 
     public UploadItemImageCommandHandler(
         IItemRepository itemRepository,
@@ -21,7 +23,8 @@ public class UploadItemImageCommandHandler : IRequestHandler<UploadItemImageComm
         IFileStorageService fileStorageService,
         INotificationService notificationService,
         ICurrentUserService currentUserService,
-        IDateTimeService dateTimeService)
+        IDateTimeService dateTimeService,
+        ILogger<UploadItemImageCommandHandler> logger)
     {
         _itemRepository = itemRepository;
         _listRepository = listRepository;
@@ -29,6 +32,7 @@ public class UploadItemImageCommandHandler : IRequestHandler<UploadItemImageComm
         _notificationService = notificationService;
         _currentUserService = currentUserService;
         _dateTimeService = dateTimeService;
+        _logger = logger;
     }
 
     public async Task<string> Handle(UploadItemImageCommand request, CancellationToken cancellationToken)
@@ -38,9 +42,12 @@ public class UploadItemImageCommandHandler : IRequestHandler<UploadItemImageComm
 
         var member = await _listRepository.GetMemberAsync(item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor);
+        PurchasedItemGuard.EnsureNotPurchased(item);
 
-        var imageUrl = await _fileStorageService.UploadImageAsync(request.ImageStream, request.FileName, cancellationToken);
+        var imageUrl = await _fileStorageService.UploadImageAsync(
+            request.ImageStream, request.ContentType, $"items/{item.Id}", cancellationToken);
 
+        var previousImageUrl = item.ImageUrl;
         item.ImageUrl = imageUrl;
         item.UpdatedAt = _dateTimeService.UtcNow;
 
@@ -48,6 +55,19 @@ public class UploadItemImageCommandHandler : IRequestHandler<UploadItemImageComm
         await _itemRepository.SaveChangesAsync(cancellationToken);
 
         await _notificationService.ItemImageUpdatedAsync(item.ListId, item.Id, imageUrl, cancellationToken);
+
+        if (previousImageUrl is not null)
+        {
+            try
+            {
+                await _fileStorageService.DeleteImageAsync(previousImageUrl, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // The new image is already saved; an orphaned old file is not worth failing the request
+                _logger.LogWarning(ex, "Could not delete previous image for item {ItemId}", item.Id);
+            }
+        }
 
         return imageUrl;
     }

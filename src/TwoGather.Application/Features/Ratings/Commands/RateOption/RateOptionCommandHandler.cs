@@ -43,6 +43,7 @@ public class RateOptionCommandHandler : IRequestHandler<RateOptionCommand, Optio
 
         var member = await _listRepository.GetMemberAsync(option.Item.ListId, _currentUserService.UserId, cancellationToken);
         ListAuthorizationHelper.RequireRole(member, MemberRole.Owner, MemberRole.Editor, MemberRole.Viewer);
+        PurchasedItemGuard.EnsureNotPurchased(option.Item);
 
         var existing = await _ratingRepository.GetByOptionAndUserAsync(request.OptionId, _currentUserService.UserId, cancellationToken);
 
@@ -68,7 +69,7 @@ public class RateOptionCommandHandler : IRequestHandler<RateOptionCommand, Optio
             await _ratingRepository.SaveChangesAsync(cancellationToken);
         }
 
-        await _notificationService.OptionRatingUpdatedAsync(option.Item.ListId, request.OptionId, cancellationToken);
+        await _notificationService.OptionRatingUpdatedAsync(option.Item.ListId, option.ItemId, request.OptionId, cancellationToken);
 
         return await BuildRatingDto(request.OptionId, _currentUserService.UserId, cancellationToken);
     }
